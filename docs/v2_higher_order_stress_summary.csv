@@ -1,0 +1,7 @@
+regime,split,n,additive_mae,pairwise_mae,full_high_order_mae
+pairwise_only,all_cells,8.0,0.01001554715730775,0.0,0.0
+pairwise_only,heldout_triple_cell,1.0,0.04650160000137826,0.0,0.0
+hidden_mild_triple,all_cells,8.0,0.04547884944328941,0.03546330228598166,0.0
+hidden_mild_triple,heldout_triple_cell,1.0,0.3302080182892315,0.28370641828785326,0.0
+hidden_strong_triple,all_cells,8.0,0.10481535290478615,0.0947998057474784,0.0
+hidden_strong_triple,heldout_triple_cell,1.0,0.8049000459812055,0.7583984459798272,0.0

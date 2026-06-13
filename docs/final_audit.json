@@ -1,0 +1,12 @@
+{
+  "paper": 52,
+  "hardening_version": "v2",
+  "decision": "workshop-only",
+  "canonical_pdf": "C:/Users/wangz/Downloads/52.pdf",
+  "key_result": "Pairwise composition fails on held-out higher-order common-cause cells; pairwise MAE reaches 0.758 under a hidden strong triple interaction.",
+  "v2_higher_order": {
+    "pairwise_only_triple_mae": 0.0,
+    "hidden_mild_triple_pairwise_mae": 0.28370641828785326,
+    "hidden_strong_triple_pairwise_mae": 0.7583984459798272
+  }
+}

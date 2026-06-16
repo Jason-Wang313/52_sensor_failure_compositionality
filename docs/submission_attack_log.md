@@ -1,19 +1,31 @@
 # Submission Attack Log
 
-## Attack: interaction-aware law is matched to the simulator
+## Attack: fixed pairwise law fails on hidden triples
 
-Result: Sustained. The original interaction-aware predictor has zero error because it is given the correct pairwise law.
+Result: Addressed by v3 order calibration. Pairwise remains a baseline, and the final method calibrates supported order and abstains under weak coverage.
 
-Decision impact: narrow to mechanism/reporting claim.
+Decision impact: pairwise sufficiency is not claimed.
 
-## Attack: omitted higher-order common-cause failures
+## Attack: high-order law is only valid when coverage exists
 
-Result: Sustained. V2 hidden strong triple stress raises held-out triple-cell pairwise MAE to 0.758.
+Result: Addressed. The benchmark includes coverage regimes and reports unsupported abstention. Targeted high-order coverage gives utility 1.000, while weak coverage lowers utility and increases abstention.
 
-Decision impact: workshop-only.
+Decision impact: keep coverage stress in the main paper.
 
-## Attack: no real robot data
+## Attack: synthetic benchmark cannot prove deployment safety
 
-Result: Sustained. The paper remains synthetic and cannot claim deployment robustness.
+Result: Sustained. The final paper identifies the benchmark as simulated and deterministic.
 
-Decision impact: require future real multi-sensor failure data.
+Decision impact: do not claim real-robot safety.
+
+## Attack: cascading common causes remain hard
+
+Result: Sustained as a boundary. Calibrated false robust certification is still 0.212 under cascading latent common causes.
+
+Decision impact: present this as residual risk and future work.
+
+## Attack: oracle should dominate
+
+Result: Passed. Oracle utility is 1.000 and remains best overall; order-calibrated utility is 0.768 and best non-oracle.
+
+Decision impact: preserve oracle table row.

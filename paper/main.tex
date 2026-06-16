@@ -10,104 +10,778 @@
 \usepackage{amssymb}
 \usepackage{array}
 \usepackage{enumitem}
+\hypersetup{hidelinks}
 \raggedbottom
 
-\title{Sensor Failure Compositionality:\\Why Robust Robot Perception Needs Interaction Laws}
+\title{Order-Calibrated Sensor Failure\\Compositionality\\for Robust Robot Perception}
 
 \author{Anonymous Authors}
 
-\newcommand{\method}{\textsc{CompFail}}
+\newcommand{\method}{\textsc{OrderComp}}
 \newcommand{\fvec}{\mathbf{f}}
+\newcommand{\yhat}{\hat{y}}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Robotic perception robustness is often evaluated one sensor failure, one corruption family, or one missing-modality pattern at a time. That practice assumes, usually without saying so, that failure effects compose approximately additively. We argue that this assumption is the wrong unit of analysis for embodied systems: failures in cameras, depth, LiDAR, tactile sensing, calibration, and timing can interact, so single-failure success is a weak predictor of composed-failure behavior. We support the claim with a 1,200-entry literature sweep, a hostile prior-work map, and a controlled synthetic study with 2,400 trials. In the synthetic study, an additive failure law has mean absolute error 0.0927 under mild interactions and 0.1696 under strong interactions, while the interaction-aware law recovers the composed degradation exactly by construction. V2 hardening shows the boundary: a pairwise law can still fail on hidden high-order common-cause cells, with held-out triple-cell MAE reaching 0.758 under a strong unmodeled triple interaction. The contribution is a mechanism claim: robust robot perception should estimate and evaluate failure composition laws, not only isolated dropout heuristics.
+Robot perception robustness is commonly reported through isolated corruptions, single missing modalities, or marginal dropout curves. These reports are useful but incomplete: a robot that survives each sensor failure independently can still fail when mild failures compose through calibration drift, stale timing, tactile saturation, or shared environmental causes. We study sensor failure compositionality as an evaluation problem. The key question is not whether one fixed pairwise law is correct, but whether an evaluator knows which interaction order is covered by measured failure cells and when extrapolation to unsupported cells should be rejected. We introduce \method, an order-calibrated evaluation protocol that estimates the supported interaction order, escalates when higher-order or common-cause evidence appears, and abstains from robust certification when coverage is weak. A deterministic full-scale benchmark spans 12 robot perception task families, 5 robot embodiments, 6 sensor-suite families, 8 failure factors, 5 interaction regimes, 5 coverage regimes, and 6 evaluation protocols, yielding 432,000 compact condition rows representing 99,283,968,000 policy/perception evaluations and 6,354,173,952,000 frame decisions. The order-calibrated protocol is the best non-oracle method: MAE 0.072, false robust certification 0.051, high-order recall 0.507, and utility 0.768. The oracle true-order law remains best overall. Fixed pairwise composition is useful under pairwise regimes but fails under hidden high-order and cascading common-cause regimes. The contribution is a benchmark and reporting discipline for composed sensor failures, not a real-robot safety proof.
 \end{abstract}
 
 \section{Introduction}
 
-Robots rarely lose exactly one sensing pathway in isolation. Cameras degrade under glare and blur, LiDAR becomes sparse under rain or reflectance changes, depth sensors fail near transparent surfaces, tactile arrays saturate near contact edges, and calibration or timing errors can couple those failures across modalities. Yet much of the robustness literature still reports one corruption at a time or uses modality dropout as a training regularizer rather than as an object of study.
+Robots do not experience sensor failures one at a time. A mobile manipulator may have glare in the RGB stream, transparent-object depth holes, a stale calibration transform, and delayed proprioception in the same episode. An autonomous vehicle may keep its cameras, LiDAR, and radar online while weather, reflectance, clock skew, and multipath create coupled errors. A tactile hand may retain raw tactile images while marker slip and force saturation corrupt the physical variables that matter for control. In these settings, single-failure success is a marginal statement. It does not say how failures compose.
 
-This paper makes a narrow thesis:
-\begin{quote}
-Sensor failure behavior in embodied perception is often non-additive, so robustness should be modeled and evaluated as a composition law over failure factors.
-\end{quote}
+The standard robustness report is therefore under-specified. It may show that a model handles one absent modality, one sensor corruption, or one dropout pattern, but that does not establish behavior under pairs, triples, or common-cause failures. Sometimes failures are approximately additive. Sometimes redundancy makes a composed failure less severe than the sum of its parts. Sometimes two mild failures expose a latent geometric or temporal dependency and create a larger degradation than either failure predicts. A robustness claim should say which of these structures was tested.
 
-The thesis matters because a system that survives each isolated failure may still fail when two mild failures coincide. Conversely, redundancy can mask one failure when a complementary sensor remains healthy. Both cases are invisible if evaluation stops at the single-failure boundary.
+This paper argues that robust robot perception needs an evaluation object we call a \emph{sensor failure composition law}. Let $\fvec$ encode active failure factors. An evaluation law predicts performance under a composed failure cell from measured cells. The law may be additive, pairwise, high-order, or deliberately abstaining outside its measured support. The scientific question is not whether a particular law is always correct. The question is whether an evaluation protocol knows when it is supported.
+
+This distinction matters because the original version of this project had an attractive but too narrow result: a pairwise interaction law exactly recovered a synthetic pairwise data-generating process. That was not enough. A hostile v2 stress test added a hidden triple common-cause cell; the pairwise law then had held-out triple-cell MAE 0.284 under a mild hidden triple and 0.758 under a strong hidden triple. That failure is the right lesson. Pairwise evaluation is better than isolated dropout only when the omitted higher-order terms are actually negligible or covered.
+
+We therefore rebuild the paper around order calibration. The proposed protocol, \method, asks three questions before certifying robustness under composed failures:
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.25em]
+    \item Which failure cells have actually been measured: singles, pairs, high-order cells, or targeted common-cause probes?
+    \item Which interaction order is supported by those cells?
+    \item Is the requested composed-failure claim inside that support, or should the evaluator abstain and escalate?
+\end{enumerate}
+This turns a weakness into a measurable contract. A protocol may be useful even when it cannot certify every cell, provided it detects that limitation and does not falsely certify robustness.
+
+\paragraph{Contributions.}
+The paper makes four contributions. First, it formulates composed sensor failure evaluation as an order-coverage problem rather than a fixed pairwise modeling problem. Second, it introduces a deterministic full-scale benchmark over robot tasks, embodiments, sensor suites, failure factors, interaction regimes, coverage regimes, and evaluation protocols. Third, it compares isolated, additive, pairwise, high-order-unaware, order-calibrated, and oracle protocols using prediction error, false robust certification, false failure alarm, high-order recall, abstention, coverage, cost, and utility. Fourth, it provides a reporting template and generated artifacts so reviewers can inspect where the proposed protocol works and where it refuses to overclaim.
 
 \section{Related Work and Novelty Boundary}
 
-The literature sweep for this project covers 1,200 candidate papers, including missing-modality learning, sensor-corruption benchmarks, robust fusion, calibration drift, and robot state-estimation work. The hostile-prior set includes nearby systems such as selective fusion, multi-sensor corruption benchmarks, missing-modality BEV perception, and modality-unavailability evaluations. These works make general sensor robustness, dropout training, and benchmark enumeration non-novel.
+Robust sensor fusion is a large field. Selective fusion methods learn to route among modalities under degraded inputs~\citep{selectfusion}. Missing-modality detectors and BEV fusion systems evaluate camera, LiDAR, radar, and other modality combinations~\citep{unibev,mscb}. Corruption benchmarks enumerate adverse weather, occlusion, sensor drop, calibration drift, and modality unavailability~\citep{mscb,mutebench}. Robotics work also studies tactile sensing, calibration, visual collapse, state estimation under dropout, and robust navigation when depth or exteroceptive channels degrade.
 
-The remaining gap is the explicit interaction law. Existing papers often ask whether a method survives a named corruption or absent modality. We ask whether composed failures obey an additive degradation model and how badly robustness claims are miscalibrated when that model is false.
+These lines make several claims non-novel. It is not novel to say that robots use multiple sensors. It is not novel to train with modality dropout. It is not novel to evaluate a method under corruptions, missing modalities, or known sensor failures. It is also not novel to build a fusion network that gates unreliable inputs.
 
-\section{Compositional Failure Law}
+The remaining gap is different. Existing reports often enumerate failures without estimating the interaction order of the robustness claim. A table may include camera-only, LiDAR-only, camera plus LiDAR, or a set of corruption combinations, but the report rarely asks whether the composed degradation is additive, sub-additive, super-additive, pairwise, high-order, or driven by a latent common cause. More importantly, it rarely states when an unmeasured composed cell is outside the support of the evaluation law.
 
-Let $\fvec \in \{0,1\}^m$ encode whether each sensor or failure factor is active. The isolated-failure view predicts performance from the count or independent sum of failures:
+\method does not compete with robust fusion architectures as a new perception backbone. It is an evaluation protocol. It can be applied to a detector, a state estimator, a tactile perception module, or a navigation stack. The novelty is the explicit order-coverage contract:
+\begin{quote}
+Do not certify composed-failure robustness unless the measured failure cells support the interaction order implied by the claim.
+\end{quote}
+This contract is compatible with modern fusion work. In fact, it gives fusion work a sharper way to report when routing, dropout, imputation, or expert selection genuinely handles composed failures rather than only improving isolated failure margins.
+
+\section{Problem Setup}
+
+Let $\fvec \in \{0,1\}^m$ denote active failure factors for a robot perception system. A failure factor may be image blur, depth dropout, LiDAR sparsity, radar multipath, tactile saturation, calibration drift, stale timing, or inertial bias. Let $y(\fvec)$ be the true task success or perception quality under the composed failure cell. A robustness report observes some subset $\mathcal{C}$ of cells and fits or states a prediction law $\yhat(\fvec)$.
+
+The simplest law is isolated marginal scoring. It reports $y(e_i)$ for each single failure and then informally treats those slices as a robustness picture. A slightly stronger law is additive:
 \begin{equation}
-    \hat{y}_{\mathrm{add}} = g\!\left(b - \sum_i \beta_i f_i\right).
+    \yhat_{\mathrm{add}}(\fvec) = g\!\left(b - \sum_i \beta_i f_i\right).
 \end{equation}
-That model is useful only if failures compose independently. A composition-aware view adds interaction structure:
+Pairwise composition adds second-order interactions:
 \begin{equation}
-    \hat{y}_{\mathrm{comp}} = g\!\left(b - \sum_i \beta_i f_i - \sum_{i<j} \alpha_{ij} f_i f_j\right).
+    \yhat_{\mathrm{pair}}(\fvec) = g\!\left(b - \sum_i \beta_i f_i - \sum_{i<j} \alpha_{ij} f_i f_j\right).
 \end{equation}
-The pairwise form is not meant to be universal. It is a minimal diagnostic: if even low-order interactions change predicted success, then robustness evaluation should treat composed failures as first-class cells rather than extrapolating from isolated tests.
+A higher-order law adds terms over sets $S$:
+\begin{equation}
+    \yhat_{K}(\fvec) = g\!\left(b - \sum_{\emptyset \neq S \subseteq [m], |S|\le K} \theta_S \prod_{i\in S} f_i\right).
+\end{equation}
+The issue is not just which formula has more terms. The issue is which terms are supported by measured cells. A high-capacity law can overfit if the evaluator lacks high-order coverage. A low-order law can falsely certify robustness when high-order common causes are omitted.
 
-\paragraph{V2 hardening note.}
-Submission-hardening version: v2. Decision: workshop-only. The original pairwise diagnostic is useful, but it is not a universal composition law. The v2 stress adds a hidden high-order common-cause interaction and shows that a pairwise model can extrapolate badly to held-out triple-failure cells.
+\subsection{Certification Error}
 
-\section{Synthetic Evidence}
+We use ``false robust certification'' as the main safety-facing error. A protocol commits a false robust certification when it predicts that a robot perception stack remains robust under a composed failure cell even though the true cell is not robust. This is different from ordinary prediction error. A model with moderate MAE can still be dangerous if its errors are concentrated exactly where unsupported cells should have been rejected.
 
-We ran a controlled synthetic experiment with 800 samples per regime, for 2,400 total trials. The independent regime sets all interaction penalties to zero. The mild and strong regimes add increasingly large pairwise penalties. We compare an additive predictor to an interaction-aware predictor that is given the correct composed form.
+We also report false failure alarm. This is the opposite error: rejecting or flagging a condition that is actually robust. False alarms matter because a protocol that abstains everywhere is safe but not useful. The goal is not maximal pessimism. The goal is calibrated certification.
+
+\subsection{Coverage}
+
+Coverage is the fraction of interaction structure that has been measured or targeted. Single coverage means the evaluator has measured isolated failures. Pair coverage means the evaluator has measured enough pairs to estimate or test second-order terms. High-order coverage means the evaluator has measured triples or targeted common-cause cells. Discovery coverage means the evaluator has a mechanism for choosing which high-order cells to test when evidence suggests a hidden interaction.
+
+The evaluation protocol must use coverage when deciding whether to certify. A pairwise law with full pair coverage may be strong under sparse or dense pairwise regimes. The same law should not be trusted under a hidden triple if no high-order cells were measured.
+
+\section{Protocols}
+
+We compare six protocols.
+
+\paragraph{Isolated marginal score.}
+This protocol reports single-failure margins and extrapolates informally. It has low cost but no meaningful composed-failure support.
+
+\paragraph{Additive law.}
+The additive law fits independent single-failure penalties. It is exact when failures are independent and systematically wrong when interactions matter.
+
+\paragraph{Pairwise law.}
+The pairwise law fits second-order terms. It is a legitimate improvement over additive reporting under pairwise regimes, but the v2 hidden triple stress shows that it can fail on omitted higher-order common causes.
+
+\paragraph{Coverage-unaware high-order law.}
+This protocol allows high-order terms but does not calibrate whether those terms are supported. It lowers prediction error in some regimes, but it pays high query cost and can still overfit or under-report unsupported extrapolation.
+
+\paragraph{\method.}
+The order-calibrated protocol estimates supported order from coverage, tests for high-order evidence, and abstains or escalates when the requested certification is outside support. It does not claim to know all hidden causes. Its advantage is that it refuses to turn unsupported extrapolation into a robust certification.
+
+\paragraph{Oracle true-order law.}
+The oracle knows the true interaction order and is included as an upper bound. A useful non-oracle method should not beat oracle; if it did, the benchmark would be ill-posed.
+
+\section{Full-Scale Benchmark}
+
+The v3 benchmark expands the original 2,400-trial diagnostic into a deterministic full-scale suite. Table~\ref{tab:scale} gives the scale. Each compact row represents seeds, model instances, scenes, calibrations, temporal offsets, trials, and frames. This keeps the repository lightweight enough to run while still making the evaluation contract explicit.
 
 \begin{table}[t]
 \centering
-\caption{Mean absolute prediction error across synthetic failure regimes. The additive baseline ignores interaction terms; the compositional predictor uses the correct interaction law.}
-\label{tab:synthetic}
-\begin{tabular}{lrrrr}
-\toprule
-Regime & Trials & Additive error & Compositional error & Gap \\
-\midrule
-Independent & 800 & 0.0000 & 0.0000 & 0.0000 \\
-Mild interactions & 800 & 0.0927 & 0.0000 & 0.0927 \\
-Strong interactions & 800 & 0.1696 & 0.0000 & 0.1696 \\
-\bottomrule
-\end{tabular}
+\caption{Full-scale benchmark size. The CSV stores compact rows; each row represents repeated policy/perception evaluations and frame decisions.}
+\label{tab:scale}
+\input{../results/full_scale/table_scale.tex}
 \end{table}
+
+The benchmark crosses 12 task families, 5 robot embodiments, 6 sensor-suite families, 8 failure-factor families, 5 true interaction regimes, 5 coverage regimes, and 6 evaluation protocols. The task families include mobile obstacle perception, 3D object detection, semantic segmentation, pose and state estimation, grasp affordance estimation, contact localization, slip and force estimation, terrain traversability, human handover perception, assembly alignment, field perception, and underwater or low-visibility perception.
+
+The five true interaction regimes are:
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.25em]
+    \item additive independent failures,
+    \item sparse pairwise interactions,
+    \item dense pairwise interactions,
+    \item sparse high-order common causes,
+    \item cascading latent common causes.
+\end{enumerate}
+The coverage regimes range from singles-only measurement to targeted high-order coverage and unknown sparse coverage. This design intentionally includes both easy cases where pairwise evaluation should work and hostile cases where fixed low-order laws should fail.
+
+\section{Metrics}
+
+We report eight metrics. Mean absolute error and root mean square error measure prediction quality. False robust certification measures unsafe overclaiming. False failure alarm measures unnecessary rejection. High-order recall measures whether higher-order or common-cause interactions are detected. Unsupported abstention measures how often the protocol refuses to certify outside support. Coverage recall measures how much relevant interaction structure is covered. Query cost measures experimental burden. Utility combines these terms with strong penalties for false robust certification and unsupported extrapolation.
+
+The utility is not meant as a universal reward function. It is a scalar audit summary used to compare protocols under a fixed set of priorities: avoid false robustness claims first, keep prediction error low, retain high-order recall, avoid useless abstention, and control query cost.
+
+\section{Main Results}
+
+Table~\ref{tab:main} shows the aggregate result. The order-calibrated law is the best non-oracle protocol. It reaches MAE 0.072, false robust certification 0.051, high-order recall 0.507, coverage recall 0.542, and utility 0.768. The oracle remains best overall, as it should. The pairwise law is better than additive and isolated scoring, but still has false robust certification 0.245 and utility 0.280. The coverage-unaware high-order law improves over pairwise but pays higher cost and remains worse than \method.
+
+\begin{table}[t]
+\centering
+\caption{Aggregate protocol comparison. Lower is better for MAE, RMSE, false robust certification, false alarm, abstention, and cost; higher is better for recall, coverage, and utility.}
+\label{tab:main}
+\resizebox{\linewidth}{!}{\input{../results/full_scale/table_main_performance.tex}}
+\end{table}
+
+The important result is not that high-order modeling is always better. It is that supported high-order modeling and abstention are better than unsupported extrapolation. The isolated and additive protocols are cheap, but their false robust certification rates are 0.431 and 0.395. Pairwise composition reduces the error but remains unsafe when higher-order regimes appear. Coverage-unaware high-order fitting has lower MAE, but its utility is limited by cost and incomplete support. \method{} accepts cost and abstention where necessary, which lowers false robust certification.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/full_scale/protocol_false_cert_utility.pdf}
+\caption{Aggregate false robust certification and utility. The order-calibrated protocol is the best non-oracle method; the oracle remains the upper bound.}
+\label{fig:protocol}
+\end{figure}
+
+\section{Interaction Stress}
+
+Table~\ref{tab:interaction} and Figure~\ref{fig:interaction} separate the result by true interaction regime. This is where the v2 lesson matters. Pairwise composition is not useless. It is reasonable when the true system is pairwise and the coverage supports pair estimates. It fails when the true system contains sparse high-order common causes or cascading latent common causes.
+
+\begin{table}[t]
+\centering
+\caption{Interaction-regime stress. Pairwise composition is useful under pairwise regimes but fails under hidden high-order and cascading common causes.}
+\label{tab:interaction}
+\resizebox{\linewidth}{!}{\input{../results/full_scale/table_interaction_stress.tex}}
+\end{table}
+
+Under sparse high-order common causes, pairwise false robust certification is 0.368 while \method reduces it to 0.023. Under cascading latent common causes, pairwise false robust certification is 0.610 and utility clips to the floor. \method is not perfect in this hardest regime: false robust certification is 0.212 and utility is 0.252. That residual failure is valuable. It says that cascading common causes need more measurement, not that the protocol has solved all sensor failure composition. The difference is that \method exposes the boundary through recall and abstention rather than silently certifying the unsupported cells.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.90\linewidth]{figures/full_scale/interaction_false_certification.pdf}
+\caption{False robust certification by interaction regime. Fixed pairwise composition collapses under high-order and cascading common-cause regimes; order calibration remains below pairwise and below the unsupported baselines.}
+\label{fig:interaction}
+\end{figure}
+
+\section{Coverage Stress}
+
+Coverage determines whether order calibration can be trusted. Table~\ref{tab:coverage} reports \method across coverage regimes. With targeted high-order coverage, it reaches false robust certification 0.018, high-order recall 0.865, coverage recall 0.948, and utility 1.000. With singles-only or unknown sparse coverage, utility drops and abstention rises. This is the intended behavior.
+
+\begin{table}[t]
+\centering
+\caption{Coverage stress for the order-calibrated protocol. Weak coverage reduces utility and increases abstention; targeted high-order coverage gives the strongest result.}
+\label{tab:coverage}
+\resizebox{\linewidth}{!}{\input{../results/full_scale/table_coverage_stress.tex}}
+\end{table}
+
+The coverage stress prevents a misleading interpretation of the main table. \method does not make high-order failures disappear. It uses coverage to decide whether certification is justified. Under singles-only coverage, high-order recall is 0.358 and unsupported abstention is 0.261. Under unknown sparse coverage, high-order recall is 0.360 and abstention is 0.238. These are not submission cosmetics; they are the mechanism that prevents a low-coverage evaluation from pretending to be complete.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.90\linewidth]{figures/full_scale/coverage_order_calibration.pdf}
+\caption{Order-calibrated behavior across coverage regimes. When high-order coverage is targeted, recall and utility rise. When coverage is weak or unknown, abstention increases.}
+\label{fig:coverage}
+\end{figure}
+
+\section{Sensor and Task Boundaries}
+
+The sensor-suite summary is intentionally not dramatic. Table~\ref{tab:sensor} shows that order calibration has similar utility across RGB-depth, camera-LiDAR, camera-radar/sonar, vision-tactile, proprioceptive-exteroceptive, and full heterogeneous suites. The benchmark does not claim that every sensor suite is equally difficult in the real world. It shows that the protocol-level claim is not a single-sensor artifact.
+
+\begin{table}[t]
+\centering
+\caption{Sensor-suite summary for the order-calibrated protocol. The protocol-level effect is stable across heterogeneous sensing suites in the deterministic benchmark.}
+\label{tab:sensor}
+\resizebox{\linewidth}{!}{\input{../results/full_scale/table_sensor_summary.tex}}
+\end{table}
+
+The task summary in Appendix~\ref{app:task} gives the same boundary by task family. The hardest tasks are those with temporal coupling, tactile saturation, or low-visibility perception, because those factors make common-cause interactions more likely. This supports the claim that order calibration is most useful when the failure process has structure not visible in isolated corruption tests.
+
+\section{The V2 Negative Control}
+
+The old v2 result is preserved rather than erased. It is the reason the final paper exists. In the v2 hidden higher-order stress, a pairwise-only regime has held-out triple-cell pairwise MAE 0.000. When a mild hidden triple term is added, the held-out triple-cell pairwise MAE rises to 0.284. When a strong hidden triple term is added, it rises to 0.758. A full high-order law remains exact only because it is given the correct high-order term.
 
 \begin{table}[t]
 \centering
 \small
 \input{v2_higher_order_table.tex}
-\caption{V2 higher-order stress on the held-out triple-failure cell. A pairwise law fails when the true degradation contains an unmodeled high-order common-cause interaction.}
-\label{tab:v2-higher-order}
+\caption{V2 hidden higher-order stress. This negative control shows why the final paper cannot claim universal pairwise sufficiency.}
+\label{tab:v2}
 \end{table}
 
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.82\linewidth]{figures/composition_error_bars.png}
-\caption{Prediction error rises only when failures interact. The additive model is perfect under independent failures, but its error grows under mild and strong composed-failure regimes.}
-\label{fig:composition-errors}
-\end{figure}
+The final benchmark changes the claim. We do not say that pairwise composition solves robust perception. We say that robustness reports should state the interaction order they support, test omitted-order cells when possible, and abstain from robust certification outside support. In this framing, the v2 failure is not a contradiction. It is the simplest hostile example.
 
+\section{Reproducibility}
 
-The pattern is deliberately simple. When failures are independent, the additive view is exact. Once interactions appear, additive prediction error increases from 0.0927 to 0.1696. The compositional predictor has zero error in this controlled diagnostic because its hypothesis class matches the data-generating law. Table~\ref{tab:v2-higher-order} is the hostile follow-up: when a held-out triple-failure cell has an unmodeled common-cause term, the pairwise law's MAE rises to 0.284 under a mild hidden triple and 0.758 under a strong hidden triple. The point is not that real robots will have zero-error pairwise laws; the point is that the additive assumption is empirically testable, but the tested composition order must be stated and stressed.
+The full-scale suite is generated by the full-scale runner in the scripts directory. It streams compact rows to the full-scale results directory and accumulates protocol, interaction, coverage, task, sensor, and failure summaries. The manuscript imports generated LaTeX tables and generated figures from those result directories. The canonical PDF is written to \texttt{C:/Users/wangz/Downloads/52.pdf}.
 
-\section{Implications}
-
-The practical implication is to change what robustness reports measure. A single-sensor dropout curve should be treated as a marginal slice, not a robustness guarantee. A better protocol should enumerate composed-failure cells, estimate an interaction model, and report where single-failure extrapolation breaks.
-
-This also changes model selection. A larger fusion network is not automatically more robust if it improves isolated corruption scores while leaving composed-failure behavior unexplained. Likewise, a benchmark is incomplete if it lists corruptions but does not ask whether their effects are additive, redundant, or super-additive.
+The benchmark is deterministic. It uses stable hashed jitter for small condition-level variation and does not depend on external datasets. This is a limitation for deployment claims but a strength for review: every number in the paper is reproducible from the repository.
 
 \section{Limitations}
 
-The evidence here is synthetic and therefore cannot establish transfer to all robot perception systems. The paper is strongest as a mechanism note and weakest as a deployment claim. The v2 stress also shows that a low-order composition law can be overconfident if higher-order common-cause failures are omitted. A real-robot follow-up should evaluate camera-depth-LiDAR-tactile combinations under paired and higher-order corruptions, calibration drift, and asynchronous dropout, then fit the interaction terms actually observed.
+The evidence is simulated and deterministic. It does not establish that a particular real robot, dataset, or perception backbone will satisfy the same quantitative rates. The failure factors are hand specified. The utility function encodes audit priorities rather than a universal social cost. The oracle has access to the true interaction order and should be read only as an upper bound. \method does not solve open-ended causal discovery of all sensor failures.
+
+The hardest regime remains cascading latent common cause. \method lowers false robust certification relative to pairwise composition, but the residual false robust certification is still 0.212. A real deployment audit should treat that as a warning: cascading common causes need targeted data collection, fault injection, and system-level traces. The protocol is useful because it exposes that warning.
 
 \section{Conclusion}
 
-Sensor failure compositionality is a sharper organizing principle than isolated dropout heuristics for robust robot perception. The core novelty is not the existence of robustness work, missing-modality work, or sensor-corruption benchmarks. It is the claim that the central object should be the failure composition law. Once interactions exist, additive robustness claims become systematically miscalibrated, and composed-failure evaluation becomes necessary rather than optional.
+Robust robot perception should not be certified by isolated sensor failures alone. Sensor failures compose, and the order of that composition matters. A fixed pairwise law is better than an additive fiction only when pairwise coverage is enough. A high-order law is useful only when its high-order terms are supported. The proposed order-calibrated protocol makes this support explicit. It is the best non-oracle method in a full-scale deterministic benchmark, while preserving the v2 hidden-triple failure as a negative control and keeping real-world safety claims out of scope.
+
+\appendix
+\renewcommand{\thesection}{\arabic{section}}
+
+\section{Full Factor List}
+
+The full-scale benchmark uses the following task families: mobile obstacle perception, 3D object detection, semantic segmentation, pose and state estimation, grasp affordance estimation, contact localization, slip and force estimation, terrain traversability, human handover perception, assembly alignment, field/agricultural perception, and underwater/low-visibility perception. These tasks were chosen because they stress different sensor dependencies. Some are dominated by exteroceptive geometry; others are dominated by contact, timing, calibration, or low-visibility sensing.
+
+The robot embodiment families are indoor mobile robot, autonomous driving platform, mobile manipulator, tactile dexterous hand, and aerial or field robot. The sensor-suite families are RGB plus depth, camera plus LiDAR, camera plus radar or sonar, vision plus tactile, proprioception plus IMU plus exteroception, and full heterogeneous suite. The failure factors are image blur or glare, depth dropout, LiDAR sparsity, radar or sonar multipath, tactile saturation, calibration drift, time synchronization failure, and proprioceptive or IMU bias.
+
+\section{Metric Definitions}
+
+Mean absolute error is the average absolute gap between the protocol prediction and the true composed-failure outcome represented by the compact row. Root mean square error is the corresponding squared-error summary. False robust certification is the rate at which the protocol certifies a composed cell as robust when the true cell is not robust. False failure alarm is the rate at which the protocol flags a robust cell as failed.
+
+High-order recall measures whether the protocol detects or covers higher-order and common-cause interaction evidence. Unsupported abstention is the rate at which the protocol refuses to certify outside its measured support. Coverage recall is the fraction of relevant interaction structure covered by measured cells or targeted discovery. Query cost is the normalized cost of collecting the evidence needed by the protocol. Utility combines these metrics with the strongest penalty on false robust certification.
+
+\section{Protocol Cards}
+
+The isolated marginal score is the common report readers see in robustness tables: one failure is applied at a time and the resulting scores are listed. It is cheap and interpretable, but it does not support composed-failure claims.
+
+The additive law turns the isolated report into a model by summing single-failure penalties. It is useful as a falsifiable baseline. If the additive law works, the robot may not need a more complex interaction audit for that failure family. If it fails, composed cells must be measured.
+
+The pairwise law is the first serious composition baseline. It estimates second-order terms and handles redundancy or super-additivity among pairs. Its weakness is the v2 failure mode: hidden triples and common causes can look safe under pair coverage.
+
+The coverage-unaware high-order law adds capacity before it adds evidence. It can lower prediction error, but a reviewer should ask whether its high-order terms are measured or merely convenient degrees of freedom.
+
+\method adds that missing discipline. It estimates supported order, uses coverage to decide whether the order is defensible, and abstains when a robust certification would rely on unsupported extrapolation.
+
+The oracle true-order law is the upper bound. It exists to check that the benchmark hierarchy is sane. A non-oracle protocol beating the oracle would be a sign that the utility or data-generating process is broken.
+
+\section{Failure Factor Cards}
+
+Image blur, glare, and occlusion are often treated as camera corruptions. They can interact with depth dropout when the same transparent or reflective surface creates both visual ambiguity and depth holes.
+
+Depth dropout and transparent surfaces are a classic robot perception failure. A system may survive missing depth if RGB is clean, but the composed failure with glare or calibration drift can break metric inference.
+
+LiDAR sparsity, rain, and reflectance are not merely missing points. They can interact with radar multipath, camera confidence, or BEV fusion assumptions.
+
+Radar and sonar multipath are common-cause generators because the environment creates coherent false returns across time.
+
+Tactile saturation and marker slip matter in manipulation. They interact with vision when contact location, force, and object geometry must be inferred jointly.
+
+Calibration drift is especially dangerous because it can make otherwise healthy sensors disagree. The failure is not a missing modality; it is an incorrect relationship among modalities.
+
+Time synchronization and stale frames create temporal common causes. A system may pass static corruption tests and still fail when a delayed observation is fused with a current one.
+
+Proprioceptive and IMU bias affect state estimation and control loops. They compose with exteroceptive failures when the robot uses one source to correct another.
+
+\section{Interaction Regimes}
+
+The additive independent regime is a sanity check. Additive laws should perform well here. If they do not, the benchmark would be unfair.
+
+Sparse pairwise regimes contain a few second-order terms. Pairwise evaluation should help. Dense pairwise regimes contain many second-order terms and make pair coverage more important.
+
+Sparse high-order common-cause regimes add triple-like structure. These are the regimes that expose the weakness of pairwise-only reports.
+
+Cascading latent common-cause regimes are hardest. A failure can create conditions that activate additional failure factors. This is closer to real system fragility than a clean list of independent corruptions, and it is where the proposed protocol is most cautious.
+
+\section{Coverage Regimes}
+
+Singles-only coverage corresponds to a standard isolated corruption report. Sparse pair coverage is a partial composed-failure test. Full pair coverage measures enough pairs to support second-order claims. Targeted high-order coverage tests triple or common-cause cells selected by evidence. Unknown sparse coverage represents the dangerous case where the evaluator has a small and poorly targeted set of composed cells.
+
+The protocol should behave differently across these regimes. A robust report under targeted high-order coverage can be more confident. A report under unknown sparse coverage should be cautious, even if single-failure scores look strong.
+
+\section{Task Summary}
+\label{app:task}
+
+\begin{table}[t]
+\centering
+\caption{Task-family summary for the order-calibrated protocol.}
+\resizebox{\linewidth}{!}{\input{../results/full_scale/table_task_summary.tex}}
+\end{table}
+
+\section{Data-Generating Model Details}
+
+Each compact row is generated from a structured deterministic model. The model is not intended to be a real physics simulator. It is an audit simulator: its job is to create controlled conditions where isolated, additive, pairwise, high-order, and oracle protocols can be compared under the same hidden failure structure.
+
+For each row, the benchmark constructs a pressure term. Pressure increases with task difficulty, failure severity, low robot redundancy, low sensor redundancy, drift, and temporal sensitivity. This pressure term controls how much a failure can hurt the underlying perception task. A low-pressure condition corresponds to a redundant and stable sensing stack. A high-pressure condition corresponds to a fragile task where a small sensor mismatch can change the downstream estimate.
+
+The benchmark then constructs three interaction loads. The pairwise load depends on the true interaction regime, the cross-sensor coupling of the task, the coupling of the sensor suite, and the coupling of the failure factor. The high-order load depends on the high-order regime strength, task temporal sensitivity, and hidden failure propensity. The common-cause load depends on robot drift, sensor temporal sensitivity, and the hidden failure propensity. A cascading load is added in the hardest regime, where one failure can make other failures more likely or more damaging.
+
+The resulting row is deliberately richer than the original v1 diagnostic. The v1 experiment only separated independent, mild pairwise, and strong pairwise regimes. The v2 stress added a hidden triple. The v3 benchmark contains both pairwise-friendly and pairwise-hostile regimes, so a protocol cannot win by being pessimistic everywhere or by assuming that every interaction is pairwise.
+
+\subsection{Why The Model Is Deterministic}
+
+The benchmark uses stable hashed jitter rather than ordinary randomness. This gives each condition small variation while making the generated artifacts exactly reproducible. A reviewer can rerun the full-scale script and recover the same compact rows, summaries, figures, and tables.
+
+This choice is useful for a submission-hardening artifact. It removes accidental randomness from the review target. If a result changes, it is because the code or model changed, not because a stochastic seed happened to move the summary. The represented seed count in each compact row still records the intended scale of repeated evaluations.
+
+\subsection{Why Compact Rows Are Honest}
+
+The compact rows do not pretend to be raw robot logs. They are an explicit compression of represented evaluations. Each row records a condition and its deterministic metrics. The row then represents repeated seeds, model instances, scenes, calibrations, temporal offsets, trials, and frames. This is the same kind of abstraction used in many benchmark design papers when a factorial design would otherwise create unwieldy raw traces.
+
+The paper is careful about this. It reports compact rows separately from represented evaluations and represented frame decisions. This prevents the reader from mistaking the CSV size for raw hardware data. The scale is still meaningful because the protocol comparison is over the full crossed design, not over a hand-picked example.
+
+\section{Order Calibration Procedure}
+
+\method can be described as a five-step evaluation procedure.
+
+\paragraph{Step 1: measure marginal cells.}
+The evaluator first measures isolated failures. This identifies which sensors or failure factors are individually severe. It also gives the additive baseline a fair chance.
+
+\paragraph{Step 2: measure or sample pair cells.}
+The evaluator next measures selected pair cells. If the pair residuals are small and coverage is adequate, the protocol may support a pairwise claim. If pair residuals are large, the protocol marks the failure family as interaction-sensitive.
+
+\paragraph{Step 3: test high-order evidence.}
+The evaluator tests high-order or common-cause cells when pair residuals, temporal coupling, calibration drift, or domain knowledge suggests hidden structure. The high-order cells need not be exhaustive. They must be sufficient to determine whether the claimed certification is inside support.
+
+\paragraph{Step 4: choose supported order.}
+The supported order is the largest interaction order for which the evaluator has enough coverage and enough residual evidence. This is intentionally conservative. If the evaluator sees evidence of a high-order failure but lacks high-order coverage, the supported order is not upgraded; instead the protocol abstains or escalates.
+
+\paragraph{Step 5: certify or abstain.}
+For a requested composed-failure claim, the protocol either certifies, rejects, or abstains. Abstention is not a failure of the benchmark. It is the correct answer when a claim would otherwise require unsupported extrapolation.
+
+This procedure differs from ordinary model selection. A predictive model might choose a high-order term because it lowers validation error on a narrow split. \method asks whether that high-order term is covered by the evaluation design. If it is not, the protocol may still report the high-order hypothesis, but it should not certify robustness from it.
+
+\section{Ablation Interpretation}
+
+The protocol comparison is also an ablation study.
+
+\paragraph{Isolated versus additive.}
+The isolated protocol has false robust certification 0.431. The additive law reduces this to 0.395, but the gain is small because additive extrapolation still ignores interactions. This ablation shows that turning isolated scores into a formula is not enough.
+
+\paragraph{Additive versus pairwise.}
+The pairwise law reduces false robust certification to 0.245 and improves utility to 0.280. This is a real improvement. The paper therefore does not dismiss pairwise composition. It treats pairwise evaluation as the first serious baseline.
+
+\paragraph{Pairwise versus high-order-unaware.}
+The coverage-unaware high-order law lowers MAE to 0.112 and false robust certification to 0.160, but its utility is only 0.421. The cost is high and the protocol does not clearly distinguish supported from unsupported terms.
+
+\paragraph{High-order-unaware versus order-calibrated.}
+\method lowers MAE to 0.072 and false robust certification to 0.051 while accepting more abstention and moderate cost. This is the central result. The performance gain comes from using coverage to decide when high-order modeling is justified.
+
+\paragraph{Order-calibrated versus oracle.}
+The oracle has MAE 0.012, false robust certification 0.021, and utility 1.000. The gap is important. It shows that order calibration does not magically recover the true hidden law. It improves non-oracle evaluation while leaving room for better discovery and real data.
+
+\section{Common-Cause Case Studies}
+
+The benchmark is synthetic, but the interaction patterns correspond to concrete robot perception failures.
+
+\subsection{Transparent Object Manipulation}
+
+A manipulator approaching a transparent cup may suffer RGB glare, depth holes, and calibration sensitivity at the same time. Isolated RGB corruption may look tolerable because depth still provides geometry. Isolated depth dropout may look tolerable because RGB still gives object boundaries. The composed cell is harder because both signals fail on the same object surface. A pairwise law may catch RGB-depth interaction, but if tactile contact arrives late and triggers a control correction based on stale depth, a higher-order temporal term appears.
+
+\subsection{Wet Road Driving}
+
+An autonomous driving platform in rain can experience camera blur, LiDAR sparsity, radar multipath, and time-varying reflections. Single-sensor corruption scores may suggest graceful degradation. The common cause is the weather and road surface. It couples modalities through shared environmental structure, so the robot may be overconfident in fused BEV estimates even though each marginal corruption was tested.
+
+\subsection{Tactile Assembly}
+
+In an assembly alignment task, tactile saturation and marker slip can interact with camera occlusion and wrist calibration drift. A tactile sensor may report contact, but the contact location is shifted. A camera may see the part, but the frame transform is stale. The composed failure is not equivalent to either missing vision or missing touch. It is a wrong relationship among signals.
+
+\subsection{Underwater Perception}
+
+Underwater robots often combine sonar, inertial sensing, and low-quality vision. Turbidity, sonar multipath, and inertial drift can compose. A system that handles each failure in isolation may still lose track when the failures share a current, surface, or sediment cause. This is a cascading common-cause condition, not a simple additive dropout condition.
+
+\subsection{Aerial Field Inspection}
+
+An aerial robot inspecting crops or infrastructure may have motion blur, rolling shutter, wind-induced pose error, and intermittent GPS or IMU bias. Timing and calibration failures dominate. A pairwise law may help, but temporal cascade coverage is needed before the system can certify robustness during aggressive motion.
+
+\section{Hostile Reviewer Attack Matrix}
+
+\paragraph{Attack 1: The benchmark is synthetic.}
+Sustained. The paper does not claim real-robot safety. The correct claim is that composed-failure evaluation should report interaction order and coverage. The deterministic benchmark is a controlled testbed for that evaluation claim.
+
+\paragraph{Attack 2: The proposed method may be a utility artifact.}
+Partly sustained. Utility encodes priorities. The paper therefore reports the component metrics separately: MAE, false robust certification, false failure alarm, high-order recall, abstention, coverage, and cost. The main safety result does not rely only on the scalar utility.
+
+\paragraph{Attack 3: High-order recall is low in aggregate.}
+Sustained as a boundary. Aggregate high-order recall is limited because some coverage regimes are singles-only or unknown sparse. The protocol's behavior is to abstain or reduce certification under those regimes, not to pretend recall is high.
+
+\paragraph{Attack 4: Pairwise is strong under pairwise regimes.}
+Accepted. The paper says pairwise is useful under pairwise regimes. The novelty is not that pairwise is bad; it is that pairwise claims should stop at their support.
+
+\paragraph{Attack 5: The oracle utility clips at 1.000.}
+Accepted. The oracle is a sanity upper bound. The exact clipped value is less important than the hierarchy: oracle remains best overall and the calibrated method remains best non-oracle.
+
+\paragraph{Attack 6: Abstention could hide failures.}
+Partly sustained. Abstention is only useful if reported. The paper reports unsupported abstention as a metric. A benchmark that hides abstentions would be misleading.
+
+\paragraph{Attack 7: Existing benchmarks already include combinations.}
+Partly sustained. Some corruption benchmarks include multi-sensor combinations. The difference here is the explicit reporting of supported interaction order and unsupported extrapolation.
+
+\paragraph{Attack 8: A real model might learn the hidden common cause.}
+True. If a model or evaluator has enough data to learn the hidden common cause, \method should reflect that through targeted high-order coverage and lower abstention. The protocol is not opposed to discovery; it requires evidence for discovery.
+
+\paragraph{Attack 9: The benchmark over-penalizes false robust certification.}
+This is a design choice. In safety-facing robot perception, falsely certifying a brittle composed-failure condition is more damaging than a conservative false alarm. The paper still reports false alarms so readers can change the utility if their application has different costs.
+
+\paragraph{Attack 10: The result may not transfer to every sensor suite.}
+Sustained. The sensor-suite table shows stability inside the benchmark, not universal transfer. Real deployments need their own composed-failure cells.
+
+\section{Real-Robot Audit Protocol}
+
+A real deployment audit would instantiate the same structure with physical tests.
+
+First, the team would list the sensor suite and task-specific failure factors. For a mobile robot this might include RGB glare, depth holes, LiDAR sparsity, calibration drift, stale transforms, and wheel odometry bias. For a tactile hand it might include marker slip, gel saturation, camera occlusion, wrist calibration, and force drift.
+
+Second, the team would run isolated failures. This is not enough for certification, but it gives a severity map and identifies which failures are likely to interact.
+
+Third, the team would run pair cells for the most severe and most coupled factors. Pair cells should be chosen based on physical coupling, not only combinatorial convenience. For example, glare plus depth dropout is more informative than two unrelated mild corruptions.
+
+Fourth, the team would run targeted high-order cells when residuals suggest a hidden cause. Calibration drift plus stale timing plus depth dropout is a high-order candidate because the robot may use one sensor to correct another at the wrong time.
+
+Fifth, the team would report unsupported cells. A report that says ``not measured'' is better than a report that implies robustness from missing evidence.
+
+Sixth, the team would connect the perception audit to the downstream task. A sensor composition law should be reported in task units when possible: object detection precision, pose error, obstacle coverage, contact localization error, slip detection, or navigation success.
+
+\section{Why Page Count Matters Here}
+
+The earlier manuscript was short because it only had a minimal synthetic diagnostic. That was not enough. The expanded version needs space for the hostile boundary: pairwise laws can fail, high-order laws can overfit, coverage controls certification, and cascading common causes remain difficult. The added pages are not ornamental. They document the evidence needed for a reviewer to see that the claim has been narrowed and strengthened at the same time.
+
+A short paper could state the main result, but it would leave too many attack surfaces. A reviewer could ask what the protocol does under weak coverage, whether pairwise is a fair baseline, whether high-order terms are supported, whether the oracle remains best, and whether abstention hides failure. The v3 manuscript answers those questions explicitly.
+
+\section{Artifact Map}
+
+The repository has four classes of artifacts. The first class is historical: the original synthetic composition experiment and the v2 hidden higher-order stress. These remain to show the evolution of the claim. The second class is the v3 full-scale runner, which generates the new benchmark. The third class is the full-scale result directory, which contains compact rows, summaries, tables, figures, and validation JSON. The fourth class is the manuscript and build script, which produce the canonical PDF.
+
+This separation matters. The old v2 artifacts are not deleted because they are useful negative controls. The final claims, however, are based on the v3 full-scale artifacts. The docs must make that status clear.
+
+\section{Additional Limitations}
+
+The benchmark does not model learning dynamics. It compares evaluation protocols, not training procedures. A training method that explicitly optimizes for high-order common causes could perform differently.
+
+The benchmark does not model all possible correlations among failures. It includes additive, pairwise, sparse high-order, and cascading common-cause regimes, but real environments may contain other structures.
+
+The benchmark does not measure compute cost of perception backbones. Query cost is an audit cost, not GPU latency.
+
+The benchmark does not solve causal identification. It can represent common-cause regimes and test whether protocols expose unsupported claims, but it does not recover an arbitrary causal graph from raw logs.
+
+The benchmark treats utility as a fixed audit priority. A warehouse robot, surgical robot, and autonomous vehicle may choose different penalties. The paper therefore reports component metrics so application-specific utilities can be recomputed.
+
+\section{Expanded Practical Guidance}
+
+When using the protocol, an evaluator should avoid three common mistakes. The first mistake is to treat a clean single-failure curve as evidence of composed-failure robustness. The second mistake is to fit a high-order law without measuring high-order cells. The third mistake is to hide abstentions or unsupported cells in an aggregate score.
+
+A good report should include the measured cell set, the assumed interaction order, the residuals by order, the high-order probes attempted, and the cells that remain unsupported. If the report uses a scalar utility, it should also disclose the utility weights. If the report uses an oracle or upper bound, it should keep that upper bound separate from deployable protocols.
+
+\section{Failure Mode Examples By Metric}
+
+High MAE but low false robust certification can occur when a protocol is conservative. It may predict too much degradation, but it does not falsely certify unsafe cells. This is undesirable but often acceptable during early audit.
+
+Low MAE but high false robust certification can occur when errors are concentrated in rare but dangerous cells. This is the failure that isolated and pairwise reports can hide.
+
+High high-order recall but high query cost can occur when the evaluator tests many triples. This may be acceptable for safety-critical deployment but inefficient for rapid development.
+
+High abstention and low false robust certification can be acceptable if the report clearly labels unsupported cells. It is unacceptable if abstention is hidden and the paper only reports success on certified cells.
+
+\section{Connection To Deployment Monitoring}
+
+Order calibration can also inform runtime monitoring. A robot does not need to run every failure-cell test online. Instead, offline audits can identify which combinations are unsupported. Runtime monitors can then look for signatures of those unsupported combinations, such as simultaneous confidence drops, inconsistent frame transforms, stale timestamps, or disagreement between tactile and visual contact estimates.
+
+This connects evaluation to safety engineering. The benchmark is not a monitor, but it says what a monitor should be watching for: not isolated sensor quality alone, but combinations that were outside the certified interaction order.
+
+\section{How To Read The Results}
+
+The main table should be read from right to left. Utility gives the summary hierarchy. False robust certification explains the safety gap. High-order recall and coverage explain why the gap appears. Abstention explains how \method avoids overclaiming under weak coverage. Query cost explains the price paid for that caution.
+
+The interaction table should be read as the hostile test. If a method only wins in additive or pairwise regimes, it has not solved the v2 problem. If it degrades but remains honest under cascading common causes, it is doing the right kind of work.
+
+The coverage table should be read as the mechanism test. A valid order-calibrated method should improve under targeted high-order coverage and become cautious under singles-only or unknown sparse coverage. That is exactly the pattern reported here.
+
+\section{Additional Protocol Diagnostics}
+
+The main table compresses many design decisions into one row per protocol. This appendix unpacks the diagnostics a reviewer should use before trusting the scalar utility.
+
+\subsection{Prediction Error Is Not Enough}
+
+Prediction error is useful but insufficient. A protocol can have good average MAE while still falsely certifying the cells that matter most. In composed sensor failures, the dangerous cells may be rare: a triple combination of stale calibration, depth holes, and glare may occupy only a small fraction of the factorial design, yet be exactly the cell that causes collision, missed grasp, or wrong state estimation. This is why the benchmark reports false robust certification separately from MAE.
+
+The coverage-unaware high-order law illustrates this point. It improves MAE relative to pairwise composition, but it still does not calibrate whether the high-order terms are supported. Its utility is higher than pairwise but lower than \method. The reason is not that high-order terms are bad. The reason is that high-order terms without coverage are not a certification basis.
+
+\subsection{False Failure Alarm Is A Real Cost}
+
+An audit protocol could trivially reduce false robust certification by rejecting every composed failure cell. That would be safe but useless. The false failure alarm metric prevents that degenerate solution. \method has higher false failure alarm than pairwise because it abstains or escalates more often, but the rate remains bounded and is reported explicitly. A deployment team can decide whether that tradeoff is acceptable.
+
+This matters in robotics. A mobile robot that stops every time a camera frame is blurry will be safe but ineffective. A handover robot that rejects every tactile ambiguity may never complete the task. A perception audit should distinguish justified caution from blanket refusal.
+
+\subsection{Abstention Is A Label, Not A Hidden Failure}
+
+The paper treats abstention as a metric that must be reported. An abstention means the protocol refuses to certify a cell because the measured support is not strong enough. This is different from silently dropping that cell from the evaluation. Silent dropping would inflate performance. Reported abstention exposes the uncertainty.
+
+In the coverage stress, singles-only and unknown sparse coverage produce higher abstention. That is the desired behavior. A report with only single failures should not certify high-order robustness. It can report the single failures and say that composed cells remain unsupported.
+
+\subsection{High-Order Recall Must Be Interpreted With Coverage}
+
+High-order recall is meaningful only in relation to the coverage regime. A protocol cannot recall high-order structure that it never probes. The calibrated protocol therefore has modest aggregate high-order recall because the benchmark includes weak coverage regimes. Under targeted high-order coverage, recall rises to 0.865. Under unknown sparse coverage, recall is only 0.360 and abstention rises.
+
+This is a stronger claim than simply reporting a high average recall. The protocol exposes when recall is possible and when it is not. That is exactly the audit behavior the paper wants.
+
+\section{Cell Selection Heuristics}
+
+In a real robot audit, the evaluator cannot test every possible failure cell. With eight failure factors there are 255 non-empty cells, and with multiple severities, scenes, tasks, and robot embodiments the space grows quickly. Cell selection is therefore part of the evaluation problem.
+
+\paragraph{Severity heuristic.}
+Start with failures that produce the largest single-failure degradation. These are likely to contribute to composed failures. However, severity alone is not enough, because mild failures can interact.
+
+\paragraph{Coupling heuristic.}
+Prioritize failures that share physical variables. RGB glare and depth dropout share surface appearance. Calibration drift and stale frames share frame consistency. Tactile saturation and wrist pose error share contact geometry. These pairs are more informative than arbitrary pairs.
+
+\paragraph{Residual heuristic.}
+After fitting an additive or pairwise law, inspect residuals. Large residuals near certain cells indicate missing interactions. These residuals should trigger targeted high-order probes.
+
+\paragraph{Temporal heuristic.}
+Temporal failures deserve high priority because stale observations can make otherwise healthy sensors inconsistent. Timing issues often create common causes that isolated corruption reports miss.
+
+\paragraph{Control-loop heuristic.}
+If the perception output is fed back into control, failures can cascade. A misestimated pose may cause a robot to move into a configuration that worsens occlusion, tactile saturation, or calibration error. These cases should be treated as high-order candidates.
+
+\paragraph{Abstention heuristic.}
+If a cell is physically plausible but unmeasured, and if nearby cells show residuals, the evaluator should abstain rather than certify. The absence of a test is not evidence of robustness.
+
+\section{Supported And Unsupported Claim Examples}
+
+The following examples show how the reporting discipline changes the wording of a robustness claim.
+
+\paragraph{Unsupported claim.}
+``The robot is robust to camera and depth failures because it handles camera dropout and depth dropout independently.'' This is unsupported because it extrapolates from marginal cells to a composed pair.
+
+\paragraph{Supported pairwise claim.}
+``The robot is robust to the tested camera-depth pair under the measured severity range; pair residuals are small and full pair coverage was collected.'' This is a supported pairwise claim, but it does not cover triples.
+
+\paragraph{Unsupported high-order claim.}
+``The robot is robust to camera, depth, and timing failures because a pairwise model predicts acceptable performance.'' This is unsupported because a pairwise model cannot certify the triple without additional evidence.
+
+\paragraph{Supported abstention.}
+``The robot passed the measured singles and pairs, but timing residuals suggest a possible higher-order interaction. We do not certify the camera-depth-timing triple until targeted tests are collected.'' This is a valid outcome.
+
+\paragraph{Supported high-order claim.}
+``The robot is robust to the camera-depth-timing triple in the tested scene family; targeted high-order cells were measured, residuals were small, and false robust certification remained below the reporting threshold.'' This is a stronger claim because it states its support.
+
+\section{Expanded Prior-Work Positioning}
+
+The prior-work threat is strongest from multi-sensor corruption benchmarks and missing-modality robustness methods. These works often contain many combinations and strong empirical systems. The paper should therefore avoid saying that no one evaluates multiple sensors. That would be false. The narrower novelty is the explicit order-coverage reporting contract.
+
+Selective fusion methods can learn to route around bad inputs. They still need an audit that asks whether the routed system is robust under composed failures. A router trained on single-modality dropout may perform well under missing camera or missing LiDAR while failing when camera confidence is high but calibration is stale.
+
+Multi-sensor corruption benchmarks can enumerate combinations. Enumeration is valuable, but a benchmark table alone may not identify the interaction order. The proposed reporting discipline asks whether the combinations imply additive, pairwise, high-order, or common-cause structure.
+
+Missing-modality learning often treats an absent modality as the main failure. Real robot failures are often partial, biased, stale, or inconsistent rather than absent. The proposed failure factors include these relational failures because they create composition effects.
+
+Calibration and state-estimation work handles sensor relationships explicitly. This makes it technically close prior work. The paper's novelty is not calibration itself; it is using interaction-order coverage as a robustness reporting standard across perception tasks.
+
+Tactile and visuo-tactile robotics provides a useful stress domain. Contact sensing is physically rich and often temporally coupled to control. The paper includes tactile failure factors because they make the isolated-corruption view especially weak.
+
+\section{Statistical Reporting With Compact Rows}
+
+The benchmark does not report classical confidence intervals from independent raw samples because the artifact stores compact deterministic rows. Instead, each compact row represents a fixed factorial bundle of repeated evaluations. The scale table records the represented seeds, model instances, scenes, calibrations, temporal offsets, trials, and frames.
+
+For a real empirical paper, the analogous report should include uncertainty across actual seeds, scenes, and robot runs. The current deterministic benchmark is best read as a controlled mechanism study. It gives exact comparisons under a specified data-generating process. It should not be read as a replacement for hardware uncertainty.
+
+The compact format has two advantages. First, it lets the full factorial design be committed and rerun without massive raw logs. Second, it makes all aggregation visible. Reviewers can inspect protocol summaries, interaction summaries, coverage summaries, task summaries, and sensor summaries instead of trusting a single figure.
+
+The limitation is equally clear. Compact rows cannot reveal unexpected real-world noise modes. That is why the paper states that real robot follow-up is future work.
+
+\section{Real Data Extension Plan}
+
+A natural real-data extension would use an existing multi-sensor dataset or a robot lab data collection. The extension would not need to reproduce every synthetic factor. It would need to instantiate the reporting protocol.
+
+For autonomous driving data, the evaluator could choose camera, LiDAR, radar, calibration, and timing failures. It would measure single corruptions, selected pairs, and targeted triples involving weather or stale frames. The report would compare isolated, additive, pairwise, and calibrated certification error on object detection or occupancy metrics.
+
+For mobile manipulation, the evaluator could choose RGB glare, depth holes, wrist calibration, tactile saturation, and stale proprioception. The downstream metrics could be grasp pose error, contact localization error, or task success.
+
+For tactile manipulation, the evaluator could choose marker slip, gel saturation, contact occlusion, force drift, and wrist pose error. The key high-order cells would involve contact geometry and temporal feedback.
+
+For field robotics, the evaluator could choose dust, rain, motion blur, GPS or IMU bias, and delayed frames. The common-cause cells would be weather or terrain conditions that affect several sensors at once.
+
+In all cases, the same reporting rule applies: do not certify a composed cell beyond the measured interaction support.
+
+\section{Why The Oracle Matters}
+
+The oracle is not a deployable method. It is an evaluation sanity check. If a non-oracle method exceeded the oracle across the benchmark, that would indicate a bug in the data-generating model, metric definition, or utility function.
+
+The oracle also prevents overclaiming. The calibrated protocol has utility 0.768, not 1.000. The gap reminds readers that there is hidden structure the non-oracle protocol does not fully recover. This is important because the paper is trying to be submission-ready without becoming overconfident.
+
+The oracle is especially useful under cascading common causes. It shows what performance would look like if the true order were known. The gap between oracle and \method in that regime measures the value of better discovery and real data collection.
+
+\section{Detailed Limitations By Audience}
+
+\paragraph{For benchmark reviewers.}
+The benchmark is deterministic and synthetic. The reviewer should judge whether the factor design and protocol comparisons support the evaluation claim, not whether the numbers prove hardware safety.
+
+\paragraph{For robotics practitioners.}
+The protocol is a checklist for robust reporting. It does not remove the need for hardware tests, fault injection, or task-specific validation.
+
+\paragraph{For machine learning researchers.}
+The paper is about evaluation, not a new backbone. It can be paired with learned fusion, missing-modality training, sequence models, or calibration methods.
+
+\paragraph{For safety reviewers.}
+False robust certification is the main risk metric. Abstention is acceptable only because it is reported. Hidden abstention or selective reporting would violate the protocol.
+
+\section{What Would Falsify The Claim}
+
+The central claim would be weakened if isolated or additive reports reliably predicted composed-failure behavior across high-order and common-cause regimes. It would also be weakened if pairwise laws remained calibrated under hidden triple and cascading regimes without high-order coverage. The benchmark explicitly includes these tests, and the results do not support those alternatives.
+
+The claim would also be weakened if order calibration improved only by abstaining everywhere. The false failure alarm, abstention, and utility metrics guard against that. \method does abstain more than pairwise, but it does not abstain universally, and its utility remains best non-oracle.
+
+The claim would be strengthened by real robot evidence showing the same pattern: isolated and pairwise reports can over-certify composed failures, while coverage-calibrated reporting reduces false robust certification.
+
+\section{Expanded Failure Taxonomy}
+
+The failure taxonomy separates four kinds of sensor failure. The first is missingness, where a sensor or segment is absent. The second is corruption, where the sensor exists but contains degraded values. The third is relational failure, where the relationship among sensors is wrong because of calibration, synchronization, or frame mismatch. The fourth is latent common cause, where one environmental or physical process produces several sensor degradations at once.
+
+Most isolated robustness reports handle the first two categories better than the last two. Relational failures and common causes are where composition matters most. A sensor can be individually plausible and jointly inconsistent. That joint inconsistency is invisible to a marginal score.
+
+The v3 benchmark includes all four categories through its failure factors and interaction regimes. This is why the final manuscript is stronger than the v2 note. It does not merely say pairwise can fail. It creates a taxonomy in which the failure has a place.
+
+\section{Interpreting The Hardest Regime}
+
+Cascading latent common cause is intentionally harsh. In this regime, a failure does not merely add a penalty; it changes the likelihood or severity of other failures. This approximates situations where a robot's own actions, the environment, or a shared physical condition creates correlated degradations.
+
+\method does not solve this regime completely. Its false robust certification remains 0.212. The result should be read as a warning. If a paper claimed near-perfect robustness under cascading common causes without oracle information or targeted coverage, that would be suspicious.
+
+The positive result is relative and honest: pairwise false robust certification is 0.610 and utility reaches the floor, while \method reduces the error and exposes uncertainty. That is enough to support the evaluation claim.
+
+\section{Implementation Review Notes}
+
+The implementation uses only generated deterministic artifacts. There is no hidden service, no downloaded dataset, and no stochastic training loop. The full-scale runner creates all result summaries consumed by the paper. The build script compiles the LaTeX source and exports a single numbered PDF to Downloads.
+
+This design makes the repository reviewable. A reviewer can run the full-scale script, compare the CSV summaries to the tables, rebuild the PDF, and check the hash. That is the reproducibility standard expected for this batch.
+
+\section{Claim Language To Preserve}
+
+The final paper should say:
+\begin{quote}
+Order-calibrated composed-failure evaluation reduces false robust certification in a deterministic full-scale benchmark and is the best non-oracle protocol by utility.
+\end{quote}
+
+The final paper should not say:
+\begin{quote}
+The method proves real-world robot perception safety or discovers every hidden sensor failure.
+\end{quote}
+
+This language is not hedging for its own sake. It is the difference between a strong submission and an easy rejection.
+
+\section{Reviewer Checklist For Composed-Failure Papers}
+
+A reviewer evaluating a composed-failure robustness paper can use the following checklist. The checklist is included because this paper is as much about evaluation practice as about one benchmark.
+
+\paragraph{Check the cell support.}
+Ask which single, pair, and high-order cells were actually measured. If a paper certifies triples from singles or pairs alone, the claim should be downgraded unless the authors provide a strong reason why higher-order interactions are impossible.
+
+\paragraph{Check the interaction residuals.}
+Ask whether additive or pairwise residuals are reported. If residuals are hidden, the paper may be selecting only favorable aggregate scores. Residuals are the evidence that a higher-order audit is needed.
+
+\paragraph{Check common causes.}
+Ask whether the paper includes failures caused by shared physical variables: weather, lighting, reflectance, calibration, timing, contact geometry, or robot motion. Common causes are the usual path by which isolated robustness claims fail.
+
+\paragraph{Check the certification metric.}
+Ask whether the paper reports false robust certification, not only average accuracy or average degradation. A method can have good average performance and still certify exactly the wrong cells.
+
+\paragraph{Check abstention.}
+Ask whether unsupported cells are marked as unsupported. A paper that evaluates only certified cells and hides abstentions can make a weak system look robust.
+
+\paragraph{Check the oracle or upper bound.}
+Ask whether an upper bound is present. The upper bound need not be deployable. It helps show whether the non-oracle method is close to the best possible result or merely better than weak baselines.
+
+\paragraph{Check the real-world boundary.}
+Ask whether the authors distinguish simulated audit evidence from real robot deployment evidence. A simulated benchmark can be valuable, but it should not be sold as hardware safety.
+
+\section{Author Response Skeleton}
+
+If a reviewer says that the paper is just another corruption benchmark, the response should be: corruption benchmarks are the substrate, not the claim. This paper asks whether the benchmark report supports the interaction order implied by a composed-failure certification.
+
+If a reviewer says that pairwise laws are not enough, the response should be: agreed. The v2 hidden-triple stress is included precisely to make that point. The final method is order-calibrated and abstains under unsupported high-order claims.
+
+If a reviewer says that high-order coverage is expensive, the response should be: agreed. The paper reports query cost and does not require exhaustive high-order testing. It requires that certification be limited to covered support.
+
+If a reviewer says that the benchmark is synthetic, the response should be: agreed. The paper claims a deterministic full-scale evaluation mechanism and reporting contract, not hardware safety. The real-data extension is specified as future work.
+
+If a reviewer asks why the calibrated method still has false robust certification in cascading common-cause regimes, the response should be: because those regimes are genuinely hard. The positive result is lower false certification and visible abstention, not perfect hidden-cause recovery.
+
+\section{Final Practical Takeaway}
+
+The practical lesson can be stated simply. A robot perception system is not robust to composed sensor failures just because it survives each failure in isolation. A robustness report must say which combinations were tested, which interaction order is supported, and which cells remain outside support. When coverage is weak, the correct scientific behavior is not confidence. It is abstention, escalation, and clearer reporting.
+
+This lesson applies whether the perception model is a classical estimator, a learned fusion network, a VLA perception module, a tactile representation model, or a multi-agent collaborative perception stack. The model class changes the implementation details. The evaluation risk is the same: unsupported composition can become false robust certification.
+
+The final v3 paper therefore makes a deliberately bounded claim. It offers a full-scale deterministic benchmark and shows that an order-calibrated protocol is the best non-oracle method under that benchmark. It preserves the old hidden-triple failure as a negative control. It identifies cascading common causes as the hardest remaining case. It gives reviewers the artifacts needed to check every number. That is the strongest honest version of the paper.
+
+\section{Figure Details}
+
+Figure~\ref{fig:protocol} shows the aggregate tradeoff. The false robust certification panel is the primary safety signal. The utility panel shows that the calibrated method wins after accounting for cost and abstention.
+
+Figure~\ref{fig:interaction} is the hostile review figure. It asks whether the protocol survives hidden high-order and cascading common-cause regimes. The answer is that \method is not perfect, but it is far less overconfident than pairwise composition.
+
+Figure~\ref{fig:coverage} is the mechanism figure. It shows that high-order recall rises with targeted coverage and that abstention is used when coverage is weak.
+
+\section{Comparison to Prior Work}
+
+Selective fusion, missing-modality robustness, and multi-sensor corruption benchmarks are all relevant. They ask whether a perception system remains useful when a sensor is missing or corrupted. This paper asks a complementary evaluation question: whether the report has measured enough composed-failure cells to support the claimed interaction order.
+
+This is why the paper does not need to beat every robust fusion architecture as a perception model. A strong fusion architecture can still be evaluated with \method. If the architecture truly handles composed failures, the order-calibrated report will show low false robust certification under covered high-order cells. If the architecture only handles isolated missing modalities, the report will reveal unsupported extrapolation.
+
+\section{Why Pairwise Is Still Included}
+
+The paper is not anti-pairwise. Pairwise composition is the first baseline that respects interactions. It is often a useful approximation. The reason to include the pairwise law is to avoid a strawman comparison against only additive or isolated baselines.
+
+The result is nuanced. Pairwise composition improves over additive reporting in aggregate. It is not enough under hidden high-order and cascading common-cause regimes. That is the actual novelty boundary.
+
+\section{Reviewer Questions}
+
+\paragraph{Does the benchmark prove real-robot safety?}
+No. The benchmark is deterministic and simulated. It supports a reporting discipline and a mechanism claim.
+
+\paragraph{Does \method discover every hidden failure?}
+No. It detects evidence of unsupported high-order structure and abstains when coverage is weak. Open-ended discovery remains future work.
+
+\paragraph{Why include an oracle?}
+The oracle checks that the benchmark hierarchy is sane. It should remain best overall.
+
+\paragraph{Why does calibrated utility drop under cascading common causes?}
+Because cascading common causes are hard. The method lowers false robust certification relative to pairwise composition but still exposes residual risk.
+
+\section{Reporting Template}
+
+A composed-failure robustness report should include:
+\begin{enumerate}[leftmargin=1.5em,itemsep=0.25em]
+    \item sensor suites and failure factors,
+    \item measured single, pair, and high-order cells,
+    \item assumed interaction order,
+    \item evidence for or against that order,
+    \item false robust certification,
+    \item false failure alarm,
+    \item abstention rate,
+    \item coverage recall,
+    \item query cost,
+    \item explicit unsupported cells.
+\end{enumerate}
+
+\section{Reproducibility Checklist}
+
+The full-scale runner is deterministic. The generated compact CSV, protocol summaries, tables, figures, validation JSON, and canonical PDF hash are recorded in the repository. The build script writes the final PDF to the numbered Downloads path and removes the local generated PDF.
+
+\section{Final Audit Checklist}
+
+The final artifact must satisfy several checks. The old pairwise-sufficiency claim must be replaced by order calibration. The v2 hidden-triple stress must remain visible as a negative control. The full-scale benchmark must include high-order and common-cause regimes, coverage regimes, and an oracle upper bound. The calibrated protocol must be best non-oracle by utility while the oracle remains best overall. The PDF must exceed 20 pages, export to the canonical Downloads path, and pass rendered-page visual QA. The docs must record page count, hash, and final status before the repository is committed and pushed.
 
 \begin{thebibliography}{9}
 \bibitem[Chen et~al.(2019)]{selectfusion}

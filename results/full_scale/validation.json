@@ -1,0 +1,18 @@
+{
+  "paper": 52,
+  "status": "final_v3_full_scale",
+  "canonical_pdf": "C:/Users/wangz/Downloads/52.pdf",
+  "pages": 24,
+  "file_size_bytes": 323143,
+  "sha256": "EFDC73077E60BFE5057D47BD3A0AD848F0A15D6416BF1508989B5A7CB3159C0D",
+  "experiment": {
+    "compact_rows": 432000,
+    "represented_evaluations": 99283968000,
+    "represented_frame_decisions": 6354173952000,
+    "evals_per_condition_row": 229824,
+    "frames_per_condition_row": 14708736
+  },
+  "visual_qa_pages": [1, 5, 7, 18, 24],
+  "local_main_pdf_removed": true,
+  "desktop_pdf_copy": "absent"
+}

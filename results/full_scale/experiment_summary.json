@@ -1,0 +1,84 @@
+{
+  "paper": 52,
+  "condition_rows": 432000,
+  "protocol_summary": [
+    {
+      "protocol": "additive",
+      "mae": "0.210135",
+      "rmse": "0.281753",
+      "false_robust_cert": "0.395232",
+      "false_failure_alarm": "0.027591",
+      "high_order_recall": "0.060000",
+      "unsupported_abstention": "0.000000",
+      "coverage_recall": "0.460000",
+      "query_cost": "0.070000",
+      "utility": "-0.039676",
+      "weight": "72000"
+    },
+    {
+      "protocol": "high_unaware",
+      "mae": "0.112237",
+      "rmse": "0.150300",
+      "false_robust_cert": "0.159636",
+      "false_failure_alarm": "0.055588",
+      "high_order_recall": "0.358200",
+      "unsupported_abstention": "0.030000",
+      "coverage_recall": "0.454240",
+      "query_cost": "0.348500",
+      "utility": "0.421128",
+      "weight": "72000"
+    },
+    {
+      "protocol": "isolated",
+      "mae": "0.228740",
+      "rmse": "0.306553",
+      "false_robust_cert": "0.431283",
+      "false_failure_alarm": "0.025586",
+      "high_order_recall": "0.028000",
+      "unsupported_abstention": "0.000000",
+      "coverage_recall": "0.246400",
+      "query_cost": "0.030000",
+      "utility": "-0.163950",
+      "weight": "72000"
+    },
+    {
+      "protocol": "oracle",
+      "mae": "0.012234",
+      "rmse": "0.016292",
+      "false_robust_cert": "0.020952",
+      "false_failure_alarm": "0.029066",
+      "high_order_recall": "0.996000",
+      "unsupported_abstention": "0.000000",
+      "coverage_recall": "0.980000",
+      "query_cost": "0.100000",
+      "utility": "1.000000",
+      "weight": "72000"
+    },
+    {
+      "protocol": "order_calibrated",
+      "mae": "0.071919",
+      "rmse": "0.096378",
+      "false_robust_cert": "0.051161",
+      "false_failure_alarm": "0.088606",
+      "high_order_recall": "0.507228",
+      "unsupported_abstention": "0.203826",
+      "coverage_recall": "0.542240",
+      "query_cost": "0.313200",
+      "utility": "0.767565",
+      "weight": "72000"
+    },
+    {
+      "protocol": "pairwise",
+      "mae": "0.144082",
+      "rmse": "0.193549",
+      "false_robust_cert": "0.245298",
+      "false_failure_alarm": "0.034278",
+      "high_order_recall": "0.140000",
+      "unsupported_abstention": "0.010000",
+      "coverage_recall": "0.478560",
+      "query_cost": "0.140000",
+      "utility": "0.280388",
+      "weight": "72000"
+    }
+  ]
+}

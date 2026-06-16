@@ -1,12 +1,46 @@
 {
   "paper": 52,
-  "hardening_version": "v2",
-  "decision": "workshop-only",
+  "hardening_version": "v3_full_scale",
+  "decision": "final_v3_full_scale_submission_artifact",
   "canonical_pdf": "C:/Users/wangz/Downloads/52.pdf",
-  "key_result": "Pairwise composition fails on held-out higher-order common-cause cells; pairwise MAE reaches 0.758 under a hidden strong triple interaction.",
-  "v2_higher_order": {
-    "pairwise_only_triple_mae": 0.0,
-    "hidden_mild_triple_pairwise_mae": 0.28370641828785326,
-    "hidden_strong_triple_pairwise_mae": 0.7583984459798272
+  "pages": 24,
+  "file_size_bytes": 323143,
+  "sha256": "EFDC73077E60BFE5057D47BD3A0AD848F0A15D6416BF1508989B5A7CB3159C0D",
+  "visual_qa_pages": [1, 5, 7, 18, 24],
+  "experiment": {
+    "condition_rows": 432000,
+    "represented_evaluations": 99283968000,
+    "represented_frame_decisions": 6354173952000,
+    "protocols": 6,
+    "task_families": 12,
+    "robot_embodiments": 5,
+    "sensor_suites": 6,
+    "failure_factors": 8,
+    "interaction_regimes": 5,
+    "coverage_regimes": 5
+  },
+  "key_result": {
+    "order_calibrated": {
+      "mae": 0.071919,
+      "rmse": 0.096378,
+      "false_robust_certification": 0.051161,
+      "false_failure_alarm": 0.088606,
+      "high_order_recall": 0.507228,
+      "unsupported_abstention": 0.203826,
+      "coverage_recall": 0.54224,
+      "query_cost": 0.3132,
+      "utility": 0.767565
+    },
+    "oracle": {
+      "mae": 0.012234,
+      "rmse": 0.016292,
+      "false_robust_certification": 0.020952,
+      "false_failure_alarm": 0.029066,
+      "high_order_recall": 0.996,
+      "unsupported_abstention": 0.0,
+      "coverage_recall": 0.98,
+      "query_cost": 0.1,
+      "utility": 1.0
+    }
   }
 }

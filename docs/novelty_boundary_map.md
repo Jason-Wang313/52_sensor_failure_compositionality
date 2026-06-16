@@ -2,27 +2,30 @@
 
 ## What Survives
 
-Sensor robustness evaluations should report how failures compose. Isolated corruption curves and missing-modality tests are marginal slices, not guarantees about combined sensor failures.
+Sensor robustness evaluations should report how failures compose and which interaction order is supported by measured cells. Isolated corruption curves and missing-modality tests are marginal slices, not guarantees about composed failures.
 
-## What V2 Breaks
+## What V2 Exposed
 
-The pairwise law is not a universal solution. On the held-out triple-failure cell:
+The fixed pairwise law was not universal. On the held-out triple-failure cell, pairwise MAE rose to 0.284 under a hidden mild triple and 0.758 under a hidden strong triple. That result now motivates the final order-calibrated benchmark.
 
-- Pairwise-only regime: pairwise MAE 0.000.
-- Hidden mild triple: pairwise MAE 0.284.
-- Hidden strong triple: pairwise MAE 0.758.
+## What V3 Adds
 
-This means a low-order law can be dangerously overconfident when common-cause or higher-order failures are omitted.
+- A 432000-row full-scale deterministic suite.
+- Twelve task families, five robot embodiments, six sensor-suite families, eight failure factors, five interaction regimes, five coverage regimes, and six protocols.
+- Protocol summaries that include MAE, RMSE, false robust certification, false failure alarm, high-order recall, unsupported abstention, coverage recall, query cost, and utility.
+- Coverage-regime evidence showing that calibrated certification improves under targeted high-order coverage and becomes cautious under weak or unknown coverage.
+- A 24-page anonymous review manuscript with generated tables and figures.
 
-## Workshop-Safe Framing
+## Supported Framing
 
-- Present the original pairwise experiment as a minimal diagnostic.
-- Present v2 as the reason to stress higher-order and common-cause cells.
-- Claim a reporting protocol: interaction order, composed-failure coverage, and omitted-order stress.
+- Present isolated and additive reporting as high false-certification baselines.
+- Present pairwise composition as useful but insufficient under omitted high-order/common-cause failures.
+- Present order calibration as an evaluation protocol, not as a perception backbone.
+- Emphasize that oracle true-order remains the upper bound.
 
 ## Unsafe Framing
 
-- "Pairwise composition solves sensor failure robustness."
-- "The method has real-robot evidence."
-- "The zero-error synthetic result is algorithmic superiority."
-- "Composed-failure evaluation is complete without high-order stress."
+- "Pairwise composition solves robust perception."
+- "The method proves real-world robot safety."
+- "The protocol discovers every hidden sensor failure."
+- "High-order laws are valid without high-order coverage."

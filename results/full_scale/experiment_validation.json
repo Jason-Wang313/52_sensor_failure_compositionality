@@ -1,0 +1,23 @@
+{
+  "status": "complete",
+  "expected_condition_rows": 432000,
+  "actual_condition_rows": 432000,
+  "represented_evaluations": 99283968000,
+  "represented_frame_decisions": 6354173952000,
+  "evals_per_condition_row": 229824,
+  "frames_per_condition_row": 14708736,
+  "figures": [
+    "protocol_false_cert_utility.pdf",
+    "interaction_false_certification.pdf",
+    "coverage_order_calibration.pdf",
+    "sensor_suite_utility.pdf"
+  ],
+  "tables": [
+    "table_scale.tex",
+    "table_main_performance.tex",
+    "table_interaction_stress.tex",
+    "table_coverage_stress.tex",
+    "table_task_summary.tex",
+    "table_sensor_summary.tex"
+  ]
+}

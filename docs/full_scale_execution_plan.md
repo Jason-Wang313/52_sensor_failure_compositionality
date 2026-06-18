@@ -2,7 +2,42 @@
 
 ## Objective
 
-Produce a final v3 submission artifact for Paper52, one paper at a time, with a 20+ page manuscript and a canonical PDF in Downloads. The v2 result showed the key boundary condition: a pairwise sensor-failure law fails when higher-order or common-cause failure cells are hidden. The v3 paper must therefore move beyond "pairwise composition is useful" and evaluate order-calibrated composition under explicit coverage, hidden-order stress, and common-cause regimes.
+Produce a final v3 submission artifact for Paper52, one paper at a time, with a 25+ page manuscript and a canonical PDF in Downloads. The v2 result showed the key boundary condition: a pairwise sensor-failure law fails when higher-order or common-cause failure cells are hidden. The v3 paper must therefore move beyond "pairwise composition is useful" and evaluate order-calibrated composition under explicit coverage, hidden-order stress, and common-cause regimes.
+
+## V4 Threshold Repair Plan
+
+Current state: the v3 full-scale experiment is already strong and should be preserved. It has 432,000 compact condition rows, 99,283,968,000 represented evaluations, and 6,354,173,952,000 represented frame decisions. The order-calibrated protocol is already best non-oracle, the oracle remains best overall, and the benchmark includes the required baselines, ablations, interaction stresses, coverage stresses, task summaries, sensor summaries, and v2 negative control.
+
+Gap: the canonical PDF has 24 pages, which satisfies the older 20+ rule but fails the current 25-page threshold. The build script also records only a minimal hash and does not enforce page count or full-scale validation. The repair should not dilute the paper with padding or rerun a RAM-heavy experiment. It should add missing technical content that strengthens the final submission and then enforce the new threshold mechanically.
+
+Target manuscript additions:
+
+- Add an order-coverage audit section explaining how to choose single, pair, high-order, and common-cause cells without oracle leakage.
+- Add deployment-monitoring material connecting unsupported abstention to runtime logging, drift detection, and sensor-suite versioning.
+- Add a compact certification-decision table that separates supported robust certification, unsupported abstention, false robust certification, and false failure alarm.
+- Add guidance on when pairwise laws are still acceptable, when order calibration is required, and when the evaluator must refuse robust certification.
+- Update final checklist language from 20 pages to 25 pages.
+
+Experiment policy:
+
+- Do not reduce the existing experiment scale.
+- Do not rerun the full suite unless validation files are missing or inconsistent.
+- Treat the existing full-scale JSON as the benchmark source of truth and make the build script verify it.
+- Keep RAM light by relying on existing streamed summaries and generated tables/figures.
+
+Build hardening:
+
+- Update `scripts/build_pdf.ps1` to require 432,000 condition rows, 99,283,968,000 represented evaluations, 6,354,173,952,000 represented frame decisions, at least 25 PDF pages, canonical export to `C:/Users/wangz/Downloads/52.pdf`, SHA256 recording, and removal of `paper/main.pdf`.
+- Update `data/build_status.json`, `results/full_scale/validation.json`, README, final audit, and child status after the final build.
+- Render the canonical PDF to `tmp/pdfs/`, inspect representative pages including the new content and final page, then remove temp renders.
+
+Final acceptance checklist:
+
+- Canonical PDF exists at `C:/Users/wangz/Downloads/52.pdf`.
+- Canonical PDF has at least 25 pages.
+- No local `paper/main.pdf` remains.
+- Validation metadata and docs record pages, bytes, SHA256, full-scale counts, and visual QA pages.
+- Repository is clean, committed, pushed, and aligned with origin.
 
 ## Working Title
 
@@ -102,7 +137,7 @@ Scale:
 - Coverage-unaware high-order fitting overfits unsupported cells or pays excessive cost.
 - The order-calibrated protocol lowers false robust certification by abstaining or escalating when coverage is weak.
 - Results include protocol summaries, interaction-regime summaries, coverage summaries, task summaries, sensor-suite summaries, validation JSON, LaTeX tables, and PDF figures.
-- The manuscript is at least 20 pages and preferably 25 pages.
+- The manuscript is at least 25 pages.
 - The final PDF is exported to `C:/Users/wangz/Downloads/52.pdf`.
 - Rendered PDF pages are visually inspected and temporary renders are removed.
 - README, status, audit, and readiness docs are updated to final v3 status.
@@ -130,7 +165,7 @@ Scale:
 3. Tune only the modeled protocol equations if the proposed protocol is not clearly best non-oracle or if the oracle hierarchy is violated.
 4. Rewrite `paper/main.tex` as the final v3 paper, with v2 hidden-triple stress framed as the negative control.
 5. Update `scripts/build_pdf.ps1` to export final v3 metadata, copy only `C:/Users/wangz/Downloads/52.pdf`, and remove `paper/main.pdf`.
-6. Build the 20+ page PDF.
+6. Build the 25+ page PDF.
 7. Render representative pages with `pdftoppm`, inspect layout and figures, then remove temporary renders.
 8. Update docs and validation metadata.
 9. Run stale-text, ASCII, LaTeX-log, PDF, hash, and git checks.
@@ -145,9 +180,9 @@ Scale:
 - Best non-oracle protocol: order-calibrated law.
 - Order-calibrated utility: 0.768.
 - Oracle utility: 1.000.
-- Final manuscript pages: 24.
+- Final manuscript pages: 26.
 - Canonical PDF: `C:/Users/wangz/Downloads/52.pdf`.
-- Canonical PDF size: 323143 bytes.
-- Canonical PDF SHA256: `EFDC73077E60BFE5057D47BD3A0AD848F0A15D6416BF1508989B5A7CB3159C0D`.
-- Visual QA pages: 1, 5, 7, 18, and 24.
-- Final status: v3 full-scale submission artifact.
+- Canonical PDF size: 331897 bytes.
+- Canonical PDF SHA256: `0E6734F7C9F69E9E74E386D5EEC722020E12E11839DB0A241E518E46B13C4A6F`.
+- Visual QA pages: 1, 5, 16, 17, 18, 24, 25, and 26.
+- Final status: v4 full-scale submission artifact with 25-page gate.

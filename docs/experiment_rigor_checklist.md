@@ -19,8 +19,9 @@
 - Unsupported abstention reported: yes.
 - Coverage recall and query cost reported: yes.
 - Oracle upper bound retained: yes.
-- Visual PDF QA performed: yes, pages 1, 5, 7, 18, and 24.
+- Build gate enforced: yes, full-scale validation and at least 25 pages.
+- Visual PDF QA performed: yes, pages 1, 5, 16, 17, 18, 24, 25, and 26.
 - Real robot validation: no, stated as a limitation.
 - Universal hidden-failure discovery guarantee: no, stated as a limitation.
 
-Decision: final v3 full-scale submission artifact.
+Decision: final v4 full-scale submission artifact with 25-page gate.

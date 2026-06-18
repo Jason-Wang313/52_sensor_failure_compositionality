@@ -1,0 +1,14 @@
+{
+    "paper":  52,
+    "status":  "final_v4_25_page_gate",
+    "canonical_pdf":  "C:\\Users\\wangz\\Downloads\\52.pdf",
+    "canonical_pages":  26,
+    "canonical_bytes":  331897,
+    "canonical_sha256":  "0E6734F7C9F69E9E74E386D5EEC722020E12E11839DB0A241E518E46B13C4A6F",
+    "minimum_pages_required":  25,
+    "local_pdf_removed":  true,
+    "compact_rows":  432000,
+    "represented_evaluations":  99283968000,
+    "represented_frame_decisions":  6354173952000,
+    "built_at":  "2026-06-19 00:16:33 +08:00"
+}

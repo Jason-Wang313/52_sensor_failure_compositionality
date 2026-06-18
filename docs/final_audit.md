@@ -1,8 +1,8 @@
 # Final Audit
 
-Paper-readiness judgment: final v3 full-scale submission artifact.
+Paper-readiness judgment: final v4 full-scale submission artifact with 25-page gate.
 
-Submission-hardening version: v3.
+Submission-hardening version: v4.
 
 ## Final Experiment
 
@@ -31,15 +31,16 @@ Submission-hardening version: v3.
 
 ## Decision
 
-The final paper is ready as a v3 full-scale submission artifact. It should be framed as a simulated benchmark and reporting discipline for order-calibrated composed sensor failure evaluation. It should not be framed as a real-robot safety proof or as universal hidden-failure discovery.
+The final paper is ready as a v4 full-scale submission artifact with a 25-page build gate. It should be framed as a simulated benchmark and reporting discipline for order-calibrated composed sensor failure evaluation. It should not be framed as a real-robot safety proof or as universal hidden-failure discovery.
 
 ## Artifact Audit
 
 - Canonical PDF: `C:/Users/wangz/Downloads/52.pdf`
-- Pages: 24.
-- File size: 323143 bytes.
-- SHA256: `EFDC73077E60BFE5057D47BD3A0AD848F0A15D6416BF1508989B5A7CB3159C0D`.
-- Visual QA pages: 1, 5, 7, 18, and 24.
+- Pages: 26.
+- File size: 331897 bytes.
+- SHA256: `0E6734F7C9F69E9E74E386D5EEC722020E12E11839DB0A241E518E46B13C4A6F`.
+- Visual QA pages: 1, 5, 16, 17, 18, 24, 25, and 26.
 - Local tracked/generated PDF policy: `paper/main.pdf` is ignored and removed after build.
 - Desktop copy: absent.
 - Build script: `scripts/build_pdf.ps1`
+- Build gate: full-scale validation and at least 25 pages.

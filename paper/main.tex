@@ -10,6 +10,7 @@
 \usepackage{amssymb}
 \usepackage{array}
 \usepackage{enumitem}
+\usepackage{float}
 \hypersetup{hidelinks}
 \raggedbottom
 
@@ -499,6 +500,50 @@ Order calibration can also inform runtime monitoring. A robot does not need to r
 
 This connects evaluation to safety engineering. The benchmark is not a monitor, but it says what a monitor should be watching for: not isolated sensor quality alone, but combinations that were outside the certified interaction order.
 
+\section{Certification Decision Ledger}
+
+The practical output of the protocol should not be only a score. It should be a certification decision for each requested composed-failure claim. A deployment team needs to know whether a cell is certified, rejected, unsupported, or escalated. This distinction is important because the same scalar error can imply different operational actions. A conservative model may overpredict degradation and trigger a false failure alarm, while an overconfident model may underpredict degradation and create false robust certification. The two errors should not be merged.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{0.20\linewidth}p{0.33\linewidth}p{0.32\linewidth}}
+\toprule
+Decision & Evidence condition & Required report \\
+\midrule
+Supported robust certification & The target cell is covered by measured cells at the required order, residuals are small, and false robust certification is below threshold. & Report the cell, order, coverage regime, residual, and downstream metric. \\
+Supported failure alarm & Measured evidence shows the composed cell degrades beyond the robustness threshold. & Report the degradation, affected task family, and whether the failure is marginal, pairwise, high-order, or common-cause. \\
+Unsupported abstention & The requested composed cell exceeds measured interaction support or has high residual uncertainty. & Mark the cell unsupported and do not count it as a success. \\
+Escalate to targeted testing & Residuals or common-cause signatures suggest that a missing high-order cell controls the decision. & Add targeted pair, triple, or common-cause tests before certification. \\
+Reject certification language & The report has only singles, weak pairs, hidden abstention, or an oracle-only justification. & Remove broad robust-composition claims from the paper or deployment note. \\
+\bottomrule
+\end{tabular}
+\caption{Certification decision ledger. The order-calibrated protocol is useful because it changes the reportable decision, not merely because it changes average error.}
+\label{tab:decision_ledger}
+\end{table}
+
+The ledger prevents a common reporting failure. If a paper tests camera dropout, depth dropout, and timing drift separately, it may be tempting to write that the system is robust to sensor failures. Under the ledger, that statement is too broad. The supported statement is narrower: the single-failure cells were measured. A camera-depth-timing certification needs either measured evidence at the required order or an explicit abstention.
+
+\section{Order-Coverage Audit Procedure}
+
+An evaluator can use \method as a concrete audit procedure. The first phase is cell inventory. List every sensor and failure factor, then mark which cells were actually measured: singles, selected pairs, targeted triples, and common-cause groups. The second phase is residual screening. Fit the simplest plausible law and inspect residuals by order, task family, and sensor suite. Large pair residuals are evidence that an additive report is insufficient. Large triple or common-cause residuals are evidence that pairwise certification is insufficient.
+
+The third phase is targeted escalation. The evaluator does not need to test all high-order cells. It should target cells where physical coupling makes interaction plausible: shared surface appearance, shared timing, shared frame transforms, shared contact geometry, or shared environmental causes. The fourth phase is certification. Certify only cells whose interaction order is supported. Reject or abstain on unsupported cells. The fifth phase is monitoring translation. Convert unsupported cells into runtime monitor signatures, such as stale transforms plus visual confidence drops or tactile saturation plus wrist-pose disagreement.
+
+This procedure is intentionally conservative. Its purpose is not to maximize the number of certified cells. Its purpose is to stop unsupported cells from being mislabeled as robust. A paper that follows the procedure may have fewer broad claims, but the remaining claims are stronger.
+
+\section{Runtime Versioning And Drift Response}
+
+Sensor-failure composition can change after deployment. A camera replacement, a LiDAR firmware update, a tactile gel replacement, a calibration change, or a new timing pipeline can change the interaction structure. The report should therefore version the sensor suite and the evaluated failure-cell set. A certification for one version should not automatically transfer to another.
+
+Runtime drift response should be tied to the order-coverage audit. If the monitor sees a signature that was inside measured support, the system can use the certified decision rule. If the monitor sees a signature that was explicitly unsupported, the system should enter the abstention or escalation path. If the monitor sees a new signature that was not part of the audit, the result is not a hidden success; it is a new unsupported cell.
+
+This is where false failure alarm becomes an engineering cost rather than an abstract metric. Escalating every new signature will interrupt the robot. Ignoring new signatures risks false robust certification. The benchmark's utility score encodes this tension, but a deployment report should expose the raw counts: how often unsupported signatures appeared, how often escalation was triggered, how often the robot recovered, and how often a human or reset was required.
+
+\section{Why This Extra Audit Is Not Padding}
+
+The added ledger and audit procedure are part of the scientific claim. The paper is about evaluation, not just prediction. A prediction law can be summarized by MAE and RMSE. A certification protocol must also say what a team is allowed to claim, when it must abstain, and how unsupported cells become future tests. Without that decision layer, the benchmark would remain a large table of synthetic numbers. With it, the artifact becomes a reproducible reporting rule for composed sensor failures.
+
 \section{How To Read The Results}
 
 The main table should be read from right to left. Utility gives the summary hierarchy. False robust certification explains the safety gap. High-order recall and coverage explain why the gap appears. Abstention explains how \method avoids overclaiming under weak coverage. Query cost explains the price paid for that caution.
@@ -781,7 +826,7 @@ The full-scale runner is deterministic. The generated compact CSV, protocol summ
 
 \section{Final Audit Checklist}
 
-The final artifact must satisfy several checks. The old pairwise-sufficiency claim must be replaced by order calibration. The v2 hidden-triple stress must remain visible as a negative control. The full-scale benchmark must include high-order and common-cause regimes, coverage regimes, and an oracle upper bound. The calibrated protocol must be best non-oracle by utility while the oracle remains best overall. The PDF must exceed 20 pages, export to the canonical Downloads path, and pass rendered-page visual QA. The docs must record page count, hash, and final status before the repository is committed and pushed.
+The final artifact must satisfy several checks. The old pairwise-sufficiency claim must be replaced by order calibration. The v2 hidden-triple stress must remain visible as a negative control. The full-scale benchmark must include high-order and common-cause regimes, coverage regimes, and an oracle upper bound. The calibrated protocol must be best non-oracle by utility while the oracle remains best overall. The PDF must have at least 25 pages, export to the canonical Downloads path, and pass rendered-page visual QA. The docs must record page count, hash, and final status before the repository is committed and pushed.
 
 \begin{thebibliography}{9}
 \bibitem[Chen et~al.(2019)]{selectfusion}

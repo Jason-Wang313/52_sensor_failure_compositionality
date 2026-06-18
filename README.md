@@ -1,6 +1,6 @@
 # Order-Calibrated Sensor Failure Compositionality
 
-Submission-hardening version: v3 full-scale.
+Submission-hardening version: v4 full-scale with 25-page gate.
 
 Decision: final submission artifact.
 
@@ -31,12 +31,12 @@ Scale: 432,000 compact condition rows representing 99,283,968,000 evaluations an
 
 The canonical built PDF is `C:/Users/wangz/Downloads/52.pdf`.
 
-- Pages: 24.
-- Size: 323,143 bytes.
-- SHA256: `EFDC73077E60BFE5057D47BD3A0AD848F0A15D6416BF1508989B5A7CB3159C0D`.
-- Visual QA: rendered pages 1, 5, 7, 18, and 24.
+- Pages: 26.
+- Size: 331,897 bytes.
+- SHA256: `0E6734F7C9F69E9E74E386D5EEC722020E12E11839DB0A241E518E46B13C4A6F`.
+- Visual QA: rendered pages 1, 5, 16, 17, 18, 24, 25, and 26.
 
-Local generated PDFs are not tracked. The build script copies the generated PDF to the canonical Downloads path and removes `paper/main.pdf`.
+Local generated PDFs are not tracked. The build script validates the full-scale experiment, enforces at least 25 pages, copies the generated PDF to the canonical Downloads path, records SHA256, and removes `paper/main.pdf`.
 
 ```powershell
 python scripts\run_full_scale_sensor_composition_suite.py

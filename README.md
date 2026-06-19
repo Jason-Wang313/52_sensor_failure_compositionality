@@ -4,7 +4,7 @@ Submission-hardening version: v4 full-scale with 25-page gate.
 
 Decision: final submission artifact.
 
-The paper now treats sensor failure compositionality as an order-coverage evaluation problem. The v2 hidden-triple failure is retained as the negative control: fixed pairwise laws can fail badly on omitted higher-order/common-cause cells. The v3 contribution is a deterministic full-scale benchmark and an order-calibrated protocol that estimates supported interaction order, escalates when higher-order evidence appears, and abstains from robust certification when coverage is weak.
+The paper now treats sensor failure compositionality as an order-coverage evaluation problem. The v2 hidden-triple failure is retained as the negative control: fixed pairwise laws can fail badly on omitted higher-order/common-cause cells. The v3 contribution is a deterministic full-scale benchmark and an order-calibrated protocol that estimates supported interaction order, escalates when higher-order evidence appears, and abstains from robust certification when coverage is weak. The PDF uses VLA-v4-matched green/red boxed clickable links.
 
 ## Key Artifacts
 
@@ -33,8 +33,8 @@ The canonical built PDF is `C:/Users/wangz/Downloads/52.pdf`.
 
 - Pages: 26.
 - Size: 331,897 bytes.
-- SHA256: `0E6734F7C9F69E9E74E386D5EEC722020E12E11839DB0A241E518E46B13C4A6F`.
-- Visual QA: rendered pages 1, 5, 16, 17, 18, 24, 25, and 26.
+- SHA256: `115D9455F9473AB471672F93D9B18982A3F681A959639D462A9D3A71FCD381C2`.
+- Visual QA: rendered original layout pages 1, 5, 16, 17, 18, 24, 25, and 26; VLA link-box pages 2, 4, 5, 6, 7, and 24.
 
 Local generated PDFs are not tracked. The build script validates the full-scale experiment, enforces at least 25 pages, copies the generated PDF to the canonical Downloads path, records SHA256, and removes `paper/main.pdf`.
 

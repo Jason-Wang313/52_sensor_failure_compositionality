@@ -38,8 +38,10 @@ The final paper is ready as a v4 full-scale submission artifact with a 25-page b
 - Canonical PDF: `C:/Users/wangz/Downloads/52.pdf`
 - Pages: 26.
 - File size: 331897 bytes.
-- SHA256: `0E6734F7C9F69E9E74E386D5EEC722020E12E11839DB0A241E518E46B13C4A6F`.
+- SHA256: `115D9455F9473AB471672F93D9B18982A3F681A959639D462A9D3A71FCD381C2`.
 - Visual QA pages: 1, 5, 16, 17, 18, 24, 25, and 26.
+- VLA-style highlight hardening: 10 green link boxes and 10 red link boxes on pages 2, 4, 5, 6, 7, and 24, all with border `(0, 0, 1)`.
+- VLA link-box visual QA pages: 2, 4, 5, 6, 7, and 24.
 - Local tracked/generated PDF policy: `paper/main.pdf` is ignored and removed after build.
 - Desktop copy: absent.
 - Build script: `scripts/build_pdf.ps1`

@@ -8,4 +8,6 @@ Allowed framing: simulated benchmark and reporting contract for order-calibrated
 
 Disallowed framing: real-robot safety proof, fixed pairwise sufficiency, universal hidden-failure discovery, or oracle replacement.
 
-Canonical artifact: `C:/Users/wangz/Downloads/52.pdf`, 26 pages, SHA256 `0E6734F7C9F69E9E74E386D5EEC722020E12E11839DB0A241E518E46B13C4A6F`.
+Canonical artifact: `C:/Users/wangz/Downloads/52.pdf`, 26 pages, SHA256 `115D9455F9473AB471672F93D9B18982A3F681A959639D462A9D3A71FCD381C2`.
+
+VLA-style highlight hardening: 10 green link boxes and 10 red link boxes on pages 2, 4, 5, 6, 7, and 24, all with border `(0, 0, 1)`.
